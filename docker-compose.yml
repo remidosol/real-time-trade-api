@@ -1,0 +1,44 @@
+version: '3.8'
+
+services:
+  redis:
+    image: redis:7-alpine
+    container_name: redis_server
+    ports:
+      - '6379:6379'
+    volumes:
+      - redis_data:/data
+    restart: unless-stopped
+    command: ['redis-server', '--appendonly', 'yes']
+    networks:
+      - trade-net
+
+  trade_api:
+    container_name: trade_api
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    command: yarn start:dev
+    ports:
+      - '3333:3333'
+    environment:
+      - NODE_ENV=dev
+      - PORT=3333
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+    volumes:
+      - ./:/app/
+      - trade_api_node_modules:/app/node_modules
+    depends_on:
+      - redis
+    restart: unless-stopped
+    networks:
+      - trade-net
+
+networks:
+  trade-net:
+    driver: bridge
+
+volumes:
+  redis_data:
+  trade_api_node_modules:
