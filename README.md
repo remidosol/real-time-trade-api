@@ -1,6 +1,6 @@
-# 🚀 Real-Time Trading API
+# Real-Time Trading API
 
-## 📖 Table of Contents
+## Table of Contents
 
 - [Overview](#overview)
 - [Tech Stack](#tech-stack)
@@ -15,7 +15,7 @@
 - [Contribution](#contribution)
 - [Contact](#contact)
 
-## 🌟 Overview
+## Overview
 
 The **Real-Time Trading API** is a **high-performance WebSocket-based** system designed for cryptocurrency trading. It enables:
 
@@ -25,7 +25,7 @@ The **Real-Time Trading API** is a **high-performance WebSocket-based** system d
 - **Redis-based caching & persistence**
 - **Scalability** with **Redis Streams Adapter for Socket.IO** to ensure real-time consistency
 
-## 🛠️ Tech Stack
+## Tech Stack
 
 - **JavaScript (ESNext)** → Modern ECMAScript features.
 - **Express.js** → Fast and scalable Node.js framework.
@@ -38,7 +38,7 @@ The **Real-Time Trading API** is a **high-performance WebSocket-based** system d
 - **ESLint & Prettier** → Code quality and formatting.
 - **AsyncAPI** → API documentation for WebSocket events.
 
-## 🏗️ Architecture & Design
+## Architecture & Design
 
 ### Why Socket.IO Instead of WebSocket?
 
@@ -71,7 +71,7 @@ Each trading pair is represented as a **room** in Socket.IO. Clients subscribe t
   - **Bids (BUY orders)** → Negative price scores (highest first).
   - **Asks (SELL orders)** → Positive price scores (lowest first).
 
-## 📂 Directory Structure
+## Directory Structure
 
 ```
 real-time-trade-api
@@ -95,38 +95,38 @@ real-time-trade-api
 └── README.md                  # This file
 ```
 
-## 📡 WebSocket Events & API Docs
+## WebSocket Events & API Docs
 
 The API uses **WebSocket (Socket.IO)** for event-driven communication. For a full list of **supported events and payload schemas**, refer to the **[AsyncAPI Documentation](./asyncapi.yaml)**.
 
-## 🚀 Getting Started
+## Getting Started
 
-### 1️⃣ Install Dependencies
+### Install Dependencies
 
 ```sh
 yarn install
 ```
 
-### 2️⃣ Run Locally (Without Docker)
+### Run Locally (Without Docker)
 
 ```sh
 yarn start:dev
 ```
 
-### 3️⃣ Run with Docker Compose
+### Run with Docker Compose
 
 ```sh
 docker-compose up --build
 ```
 
-### 4️⃣ Build and Run the Production Version
+### Build and Run the Production Version
 
 ```sh
 yarn build
 yarn start:bundled
 ```
 
-## 📜 Environment Variables
+## Environment Variables
 
 Configuration is managed via `.env` files. See **[.env.example](./secrets/.env.example)** for required environment variables.
 
@@ -137,7 +137,7 @@ REDIS_HOST=redis
 REDIS_PORT=6379
 ```
 
-## 🐳 Docker Setup
+## Docker Setup
 
 This project uses **Docker Compose** for managing dependencies:
 
@@ -150,22 +150,22 @@ Start the project with:
 docker-compose up --build
 ```
 
-## 🛠️ Development & Testing
+## Development & Testing
 
-### **Lint & Format Code**
+### Lint & Format Code
 
 ```sh
 yarn lint
 yarn format
 ```
 
-### **Run Tests**
+### Run Tests
 
 ```sh
 yarn test
 ```
 
-## 📌 Modules Overview
+## Modules Overview
 
 - **[Order Module](./src/modules/order/README.md)** → Manages order creation, cancellation, and execution.
 - **[Trade Module](./src/modules/trade/README.md)** → Matches buy/sell orders and executes trades.
@@ -174,14 +174,14 @@ yarn test
 - **[Core Utilities](./src/core/README.md)** → Logging, middleware, and global utilities.
 - **[Config](./src/config/README.md)** → Environment variables and Redis configuration.
 
-## 📖 License
+## License
 
 This project is licensed under the **MIT License**.
 
-## 🤝 Contribution
+## Contribution
 
 Feel free to submit issues, feature requests, or contribute to the project.
 
-## 📬 Contact
+## Contact
 
 - GitHub: [remidosol](https://github.com/remidosol)
