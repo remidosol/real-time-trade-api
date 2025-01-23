@@ -2,7 +2,7 @@ import { z } from 'zod';
 import { SupportedPairs } from '../../../core/globalConstants.js';
 import { Sides } from '../orderConstants.js';
 
-export const CreateOrderRequestDto = z.object({
+export const createOrderRequestDto = z.object({
   orderId: z.string().optional(),
   pair: z.enum(Object.values(SupportedPairs), {
     message: `pair property should be one of these values: ${Object.values(SupportedPairs)}`,

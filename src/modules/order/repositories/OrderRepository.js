@@ -158,7 +158,7 @@ class OrderRepository {
 
       if (fieldsToUpdate.price !== undefined) {
         // Price changed => remove from old sorted set + re-add with new price
-        await this._updateOrderPrice(existingOrder, fieldsToUpdate.price);
+        await this.#_updateOrderPrice(existingOrder, fieldsToUpdate.price);
       }
 
       existingOrder.price = fieldsToUpdate.price ?? existingOrder.price;
@@ -180,11 +180,11 @@ class OrderRepository {
    * @param {Order} order
    * @param {number} newPrice
    */
-  async _updateOrderPrice(order, newPrice) {
+  async #_updateOrderPrice(order, newPrice) {
     try {
       const pair = order.pair;
 
-      const multi = this.#redis.multi({ pipeline: true });
+      const multi = this.#redis.multi();
 
       if (order.side === Sides.BUY) {
         multi.zrem(`orderbook:${pair}:bids`, order.orderId);
@@ -227,6 +227,7 @@ class OrderRepository {
       order.status = status;
 
       // If it's canceled or filled, maybe remove from the order book
+      // order will be removed from sorted set, not from hash
       if (status === TradeStatus.CANCELLED || status === TradeStatus.FILLED) {
         await this.removeOrder(order);
       }
@@ -259,7 +260,7 @@ class OrderRepository {
     );
 
     // Results is an array: [orderId, score, orderId, score, ...]
-    return this._parseZRangeResults(results, true);
+    return this.#_parseZRangeResults(results, true);
   }
 
   /**
@@ -278,7 +279,7 @@ class OrderRepository {
       'WITHSCORES',
     );
 
-    return this._parseZRangeResults(results, false);
+    return this.#_parseZRangeResults(results, false);
   }
 
   /**
@@ -289,8 +290,10 @@ class OrderRepository {
    *
    * @returns {Promise<Order[]>} parsed output
    */
-  async _parseZRangeResults(results, isBid) {
+  async #_parseZRangeResults(results, isBid) {
     const output = [];
+
+    console.log('results:', results);
 
     for (let i = 0; i < results.length; i += 2) {
       const orderId = results[i];
@@ -308,6 +311,8 @@ class OrderRepository {
 
       output.push(order);
     }
+
+    console.log('output:', output);
 
     return output;
   }

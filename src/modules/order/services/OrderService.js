@@ -30,6 +30,7 @@ class OrderService {
         price: data.price,
         quantity: data.quantity,
         side: data.side,
+        status: TradeStatus.OPEN,
       });
 
       // 3) Save to repository

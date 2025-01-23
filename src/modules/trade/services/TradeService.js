@@ -2,6 +2,8 @@ import { v4 as uuidv4 } from 'uuid';
 import { tradeRepository } from '../repositories/TradeRepository.js';
 import { Trade } from '../models/Trade.js';
 import { orderService } from '../../order/services/OrderService.js';
+import { SupportedPairs } from '../../../core/globalConstants.js';
+import { TradeStatus } from '../tradeConstants.js';
 
 class TradeService {
   #tradeRepository;
@@ -14,9 +16,10 @@ class TradeService {
   /**
    * Attempt to match the top buy and sell order for a pair.
    * Returns a Trade object if successful, or null if no match.
+   *
+   * @param {keyof SupportedPairs} pair
    */
   async matchTopOrders(pair) {
-    // 1) get top bid + ask
     const [bids, asks] = await Promise.all([
       this.#orderService.getTopBids(pair, 1),
       this.#orderService.getTopAsks(pair, 1),
@@ -25,20 +28,19 @@ class TradeService {
     const topBid = bids[0];
     const topAsk = asks[0];
 
-    if (!topBid || !topAsk) {
-      //No orders to match
-      return null;
-    }
-
-    // 2) Check if bid.price >= ask.price => match
-    if (topBid.price < topAsk.price) {
-      // No match
+    if (
+      !topBid ||
+      !topAsk ||
+      topBid.price < topAsk.price ||
+      topBid.status !== TradeStatus.OPEN ||
+      topAsk.status !== TradeStatus.OPEN
+    ) {
       return null;
     }
 
     // For simplicity, we assume a full fill of whichever side is smaller quantity
     const quantity = Math.min(topBid.quantity, topAsk.quantity);
-    const price = (topBid.price + topAsk.price) / 2; // or pick topAsk.price or topBid.price
+    const price = (topBid.price + topAsk.price) / 2;
 
     // 3) Create a Trade
     const trade = new Trade({

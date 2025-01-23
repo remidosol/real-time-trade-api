@@ -1,5 +1,5 @@
 import { z } from 'zod';
 
-export const CancelOrderRequestDto = z.object({
+export const cancelOrderRequestDto = z.object({
   orderId: z.string(),
 });

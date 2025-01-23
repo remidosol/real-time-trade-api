@@ -1,4 +1,4 @@
-module.exports = {
+export default {
   // Automatically clear mock calls and instances between every test
   clearMocks: true,
 
@@ -10,8 +10,8 @@ module.exports = {
 
   // An array of glob patterns indicating a set of files for which coverage information should be collected
   collectCoverageFrom: [
-    'src/**/*.{js}',
     '!src/**/*.test.{js}',
+    '!src/app.js',
     '!src/index.js',
     '!**/node_modules/**',
   ],
@@ -34,7 +34,7 @@ module.exports = {
   verbose: true,
 
   // An array of regexp patterns that are matched against all source file paths before transformation
-  transformIgnorePatterns: ['/node_modules/', '\\.pnp\\.[^\\/]+$'],
+  transformIgnorePatterns: ['node_modules/', '\\.pnp\\.[^\\/]+$'],
 
   // The root directory that Jest should scan for tests and modules within
   rootDir: '.',

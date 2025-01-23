@@ -63,6 +63,8 @@ export class TradeSocketController {
       const { pair } = data;
       const trade = await this.#tradeService.matchTopOrders(pair);
 
+      console.log('trade:', trade);
+
       if (!trade) {
         //no match
         return socket.emit(
@@ -75,7 +77,7 @@ export class TradeSocketController {
         );
       }
 
-      // Send the trade info back to the requester
+      // Emit the trade to the client
       socket.emit(
         OutgoingEventNames.TRADE_EXECUTED,
         EmitResponse.Success({
@@ -86,17 +88,22 @@ export class TradeSocketController {
       );
 
       // Broadcast to all subscribers of that pair
-      this.#nameSpace.to(pair).emit(
-        OutgoingEventNames.TRADE_UPDATE,
-        EmitResponse.Success({
-          event: ErrorEventNames.TRADE_EXECUTED,
-          message: 'Trade has been executed',
-          data: trade,
-        }),
-      );
+      this.#io
+        .of('/subscription')
+        .to(pair)
+        .emit(
+          OutgoingEventNames.TRADE_UPDATE,
+          EmitResponse.Success({
+            event: ErrorEventNames.TRADE_EXECUTED,
+            message: `A trade has been executed for the pair ${pair}`,
+            data: trade,
+          }),
+        );
     } catch (err) {
-      logger.error('[TradeSocketController] matchTopOrders error:', err);
-      return socket.emit(ErrorEventNames.TRADE_ERROR, { message: err.message });
+      this.handleError(socket, {
+        ...err,
+        message: 'matchTopOrders error',
+      });
     }
   }
 
@@ -138,7 +145,7 @@ export class TradeSocketController {
       context: '[TradeSocketController]',
     });
     return socket.emit(
-      ErrorEventNames.GATEWAY_ERROR,
+      ErrorEventNames.TRADE_ERROR,
       EmitResponse.Error({
         event: ErrorEventNames.TRADE_ERROR,
         message: error.message || 'An error occurred',

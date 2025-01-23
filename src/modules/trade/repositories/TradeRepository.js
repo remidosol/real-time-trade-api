@@ -21,9 +21,8 @@ class TradeRepository {
     try {
       const tradeKey = `trade:${trade.tradeId}`;
 
-      const multi = this.#redis.multi({ pipeline: true });
+      const multi = this.#redis.multi();
 
-      // 1) Write fields to a Redis hash
       multi.hset(tradeKey, {
         tradeId: trade.tradeId,
         pair: trade.pair,
@@ -34,8 +33,7 @@ class TradeRepository {
         timestamp: String(trade.timestamp),
       });
 
-      // 2) Optionally store in a list or sorted set for the pair
-      // For chronological listing, we can LPUSH or ZADD by timestamp
+      // For chronological listing, use timestamp as the score.
       multi.zadd(`trades:${trade.pair}`, trade.timestamp, trade.tradeId);
 
       await multi.exec();
@@ -58,7 +56,7 @@ class TradeRepository {
 
       const data = await this.#redis.hgetall(tradeKey);
 
-      if (!data || !data.tradeId) return null;
+      if (!data || !data?.tradeId) return null;
 
       return new Trade({
         tradeId: data.tradeId,

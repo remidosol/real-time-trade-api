@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { SupportedPairs } from '../../../core/globalConstants.js';
 
-export const SubscriptionPairRequestDto = z.object({
+export const subscriptionPairRequestDto = z.object({
   pair: z.enum(Object.values(SupportedPairs), {
     message: `pair property should be one of these values: ${Object.values(SupportedPairs)}`,
   }),

@@ -61,9 +61,7 @@ export class SubscriptionSocketController {
       return;
     }
 
-    const subscribedPairs = await this.getSubscribedPairs(socket);
-
-    if (subscribedPairs.has(data.pair)) {
+    if (await this.#isSubscribed(socket, data.pair)) {
       socket.emit(
         ErrorEventNames.SUBSCRIPTION_ERROR,
         EmitResponse.Error({
@@ -100,9 +98,7 @@ export class SubscriptionSocketController {
       return;
     }
 
-    const subscribedPairs = await this.getSubscribedPairs(socket);
-
-    if (!subscribedPairs.has(data.pair)) {
+    if (!(await this.#isSubscribed(socket, data.pair))) {
       socket.emit(
         ErrorEventNames.SUBSCRIPTION_ERROR,
         EmitResponse.Error({
@@ -140,26 +136,27 @@ export class SubscriptionSocketController {
     }
 
     try {
-      const pair = data.pair;
       const limit = data.limit || 5;
 
-      // Fetch top bids, asks
-      const [bids, asks] = await Promise.all([
-        this.#orderService.getTopBids(pair, limit),
-        this.#orderService.getTopAsks(pair, limit),
-      ]);
+      const bidsAsksOfSubscribedPairs = {};
+
+      const subscribedPairs = await this.#getSubscribedPairs(socket);
+
+      for (const [pair] of subscribedPairs.entries()) {
+        const [bids, asks] = await Promise.all([
+          this.#orderService.getTopBids(pair, limit),
+          this.#orderService.getTopAsks(pair, limit),
+        ]);
+
+        bidsAsksOfSubscribedPairs[pair] = [bids, asks];
+      }
 
       // Respond to the requester
       socket.emit(
         OutgoingEventNames.TOP_ORDER_BOOK,
         EmitResponse.Success({
-          event: ErrorEventNames.UNSUBSCRIBED,
-          message: `Unsubscribing to ${data.pair} pair is successfull`,
-          data: {
-            pair,
-            bids,
-            asks,
-          },
+          event: OutgoingEventNames.TOP_ORDER_BOOK,
+          data: { ...bidsAsksOfSubscribedPairs },
         }),
       );
     } catch (error) {
@@ -199,7 +196,7 @@ export class SubscriptionSocketController {
    *
    * @returns {Promise<Set<keyof SupportedPairs>>}
    */
-  async getSubscribedPairs(socket) {
+  async #getSubscribedPairs(socket) {
     const subscribedPairs = new Set();
 
     for (const [key, _val] of socket.rooms.entries()) {
@@ -207,5 +204,18 @@ export class SubscriptionSocketController {
     }
 
     return subscribedPairs;
+  }
+
+  /**
+   * To get subscribed order books
+   *
+   * @param {Socket} socket
+   *
+   * @returns {Promise<Set<keyof SupportedPairs>>}
+   */
+  async #isSubscribed(socket, pair) {
+    const subscribedPairs = await this.#getSubscribedPairs(socket);
+
+    return subscribedPairs.has(pair);
   }
 }

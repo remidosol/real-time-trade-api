@@ -1,3 +1,5 @@
+import { SupportedPairs } from '../../../core/globalConstants.js';
+
 export class Trade {
   /**
    * @property {string}
@@ -36,7 +38,7 @@ export class Trade {
 
   /**
    *
-   * @param {{tradeId: string; pair: string; buyOrderId: string; sellOrderId: string; quantity: number; price: number; timestamp: string | number | Date}} tradeProps
+   * @param {{tradeId: string; pair: keyof SupportedPairs; buyOrderId: string; sellOrderId: string; quantity: number; price: number; timestamp: string | number | Date}} tradeProps
    */
   constructor({
     tradeId,

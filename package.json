@@ -13,7 +13,7 @@
     "start:bundled": "node dist/bundle.cjs",
     "start:dev": "nodemon src/index.js --watch",
     "docs:generate": "asyncapi generate fromTemplate ./asyncapi.yaml @asyncapi/html-template -o ./docs --use-new-generator --force-write",
-    "test": "jest",
+    "test": "jest --config jest.config.js",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "format": "prettier --write ."

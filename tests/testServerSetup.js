@@ -1,63 +1,114 @@
-import cors from 'cors';
-import express from 'express';
-import helmet from 'helmet';
-import http from 'http';
-import { Server } from 'socket.io';
-import { EventSchemas } from '../src/core/events/index';
-import logger from '../src/core/logger/logger';
-import { socketDtoMiddleware } from '../src/core/middlewares';
-import { OrderSocketController } from '../src/order/orderGateway';
-import { TradeSocketController } from '../src/trade/tradeGateway';
-import { SubscriptionSocketController } from '../src/subscription/subscriptionGateway';
+import dotenv from 'dotenv';
+import { createServer } from 'http';
+import { Server, Socket as ServerSocket } from 'socket.io';
+import { ServerOptions } from 'engine.io';
+import { Socket as ClientSocket } from 'socket.io-client';
+import { createAdapter } from '@socket.io/redis-streams-adapter';
+import Redis from 'ioredis';
+
+dotenv.config({});
 
 /**
- * Creates a test server with Express & Socket.IO,
- * but does NOT start listening on a fixed port. Instead, we let Node pick a free port.
+ *
+ * @param {number} count
+ * @param {Function} fn
+ * @returns
  */
-export async function createTestServer() {
-  const app = express();
+export const times = (count, fn) => {
+  let i = 0;
 
-  app.use(helmet());
-  app.use(cors());
-  app.use(express.json());
-  app.use(express.urlencoded({ extended: true }));
+  return () => {
+    i++;
+    if (i === count) {
+      fn();
+    } else if (i > count) {
+      throw new Error(`too many calls: ${i} instead of ${count}`);
+    }
+  };
+};
 
-  const server = http.createServer(app);
-  const io = new Server(server, {
-    cors: { origin: '*' },
+/**
+ * To sleep for a duration
+ *
+ * @param {number} duration
+ */
+export const sleep = (duration) => {
+  return new Promise((resolve) => setTimeout(resolve, duration));
+};
+
+/**
+ * To throw an error when called
+ *
+ * @param {Function} done
+ */
+export const shouldNotHappen = (done) => {
+  return () => done(new Error('should not happen'));
+};
+
+const initRedisClient = async () => {
+  return new Redis();
+};
+
+/**
+ * Default number of nodes
+ * @type {number}
+ */
+const NODES_COUNT = 1;
+
+/**
+ * To setup test server(s)
+ *
+ * @param {{ nodeCount: number, serverOptions?: ServerOptions } }} setupOptions
+ *
+ * @returns {Promise<{server: Server; serverSockets: ServerSocket[]; clientSockets: ClientSocket[]; cleanup: () => void; ports: number[]}>}
+ */
+export const setup = ({ nodeCount = NODES_COUNT, serverOptions = {} } = {}) => {
+  let server = null;
+  const serverSockets = [];
+  const clientSockets = [];
+  const redisClients = [];
+  const ports = [];
+
+  return new Promise(async (resolve) => {
+    for (let i = 1; i <= nodeCount; i++) {
+      const redisClient = await initRedisClient();
+
+      const httpServer = createServer();
+      const io = new Server(httpServer, {
+        adapter: createAdapter(redisClient),
+        ...serverOptions,
+      });
+
+      httpServer.listen(() => {
+        const port = httpServer.address().port;
+        const clientSocket = ioc(`http://localhost:${port}`);
+
+        io.on('connection', async (socket) => {
+          clientSockets.push(clientSocket);
+          serverSockets.push(socket);
+          server = io;
+          redisClients.push(redisClient);
+          ports.push(port);
+
+          if (server) {
+            server.emit('ping');
+
+            await sleep(200);
+
+            resolve({
+              server,
+              serverSockets,
+              clientSockets,
+              ports,
+              cleanup: () => {
+                server.close();
+                clientSockets.forEach((socket) => socket.disconnect());
+                redisClients.forEach((redisClient) => redisClient.quit());
+              },
+            });
+          }
+        });
+      });
+    }
   });
-
-  // Example minimal events in test mode
-  io.on('connection', (socket) => {
-    logger.debug(`Test client connected: ${socket.id}`);
-
-    // If you want a test "pingTest" event
-    socket.on('pingTest', () => {
-      socket.emit('pongTest');
-    });
-
-    socket.on('disconnected', () => {
-      logger.debug(`Test client disconnected: ${socket.id}`);
-    });
-  });
-
-  // If you want to use your actual Gateways:
-  io.use(socketDtoMiddleware(EventSchemas));
-
-  new OrderSocketController(io);
-  new SubscriptionSocketController(io);
-  new TradeSocketController(io);
-
-  app.get('/', (_req, res) => {
-    res.send('Hello from Real-Time Trading API!');
-  });
-
-  // Listen on an ephemeral port (0) so we don't conflict
-  await new Promise((resolve) => {
-    server.listen(0, () => {
-      resolve();
-    });
-  });
-
-  return { server, io };
-}
+};
