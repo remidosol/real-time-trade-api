@@ -293,7 +293,7 @@ class OrderRepository {
   async #_parseZRangeResults(results, isBid) {
     const output = [];
 
-    console.log('results:', results);
+    // console.log('results:', results);
 
     for (let i = 0; i < results.length; i += 2) {
       const orderId = results[i];
@@ -312,7 +312,7 @@ class OrderRepository {
       output.push(order);
     }
 
-    console.log('output:', output);
+    // console.log('output:', output);
 
     return output;
   }

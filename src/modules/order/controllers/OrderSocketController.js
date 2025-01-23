@@ -67,10 +67,10 @@ export class OrderSocketController {
 
       // Acknowledgment creation to the requesting client
       socket.emit(
-        OutgoingEventNames.ORDER_CREATED,
-        EmitResponse.Success({
-          event: ErrorEventNames.ORDER_CREATED,
-          message: 'Order has been created.',
+        ...EmitResponse.Success({
+          eventEmit: OutgoingEventNames.ORDER_CREATED,
+          payloadEventKey: OutgoingEventNames.ORDER_CREATED,
+          message: `Order has been created.`,
           data: newOrder,
         }),
       );
@@ -80,10 +80,10 @@ export class OrderSocketController {
         .of('/subscription')
         .to(newOrder.pair)
         .emit(
-          OutgoingEventNames.ORDER_BOOK_UPDATE,
-          EmitResponse.Success({
-            event: ErrorEventNames.ORDER_CREATED,
-            message: 'An Order has been created.',
+          ...EmitResponse.Success({
+            eventEmit: OutgoingEventNames.ORDER_BOOK_UPDATE,
+            payloadEventKey: OutgoingEventNames.ORDER_CREATED,
+            message: `An order has been created.`,
             data: newOrder,
           }),
         );
@@ -112,28 +112,36 @@ export class OrderSocketController {
       if (!cancelledOrder) {
         // Possibly no such order
         return socket.emit(
-          ErrorEventNames.ORDER_ERROR,
-          EmitResponse.Error({
-            event: ErrorEventNames.ORDER_ERROR,
+          ...EmitResponse.Error({
+            eventEmit: ErrorEventNames.ORDER_ERROR,
+            payloadEventKey: ErrorEventNames.ORDER_ERROR,
             message: `Order ${data.orderId} not found or already cancelled`,
           }),
         );
       }
 
       // Notify client
-      socket.emit(OutgoingEventNames.ORDER_CANCELLED, cancelledOrder);
+      socket.emit(
+        ...EmitResponse.Success({
+          eventEmit: OutgoingEventNames.ORDER_CANCELLED,
+          payloadEventKey: OutgoingEventNames.ORDER_CANCELLED,
+          message: 'An Order has been cancelled.',
+          data: cancelledOrder,
+        }),
+      );
 
       // Notify subscribers of that pair
-      if (cancelledOrder.pair) {
-        this.#nameSpace.to(cancelledOrder.pair).emit(
-          OutgoingEventNames.ORDER_BOOK_UPDATE,
-          EmitResponse.Success({
-            event: ErrorEventNames.ORDER_CANCELLED,
+      this.#io
+        .of('/subscription')
+        .to(cancelledOrder.pair)
+        .emit(
+          ...EmitResponse.Success({
+            eventEmit: OutgoingEventNames.ORDER_BOOK_UPDATE,
+            payloadEventKey: OutgoingEventNames.ORDER_CANCELLED,
             message: 'An Order has been cancelled.',
             data: cancelledOrder,
           }),
         );
-      }
     } catch (error) {
       this.handleError(socket, {
         ...error,
@@ -149,32 +157,46 @@ export class OrderSocketController {
    * @param {Object} data { orderId }
    */
   async handleFillOrder(socket, data) {
-    // if (!isValidationSuccess(IncomingEventNames.FILL_ORDER, data)) {
-    //   return;
-    // }
+    if (!isValidationSuccess(IncomingEventNames.FILL_ORDER, data)) {
+      return;
+    }
 
     try {
       const filledOrder = await this.#orderService.fillOrder(data.orderId);
 
       if (!filledOrder) {
-        return socket.emit(ErrorEventNames.ORDER_ERROR, {
-          message: `Order ${data.orderId} not found or can't be filled`,
-        });
+        socket.emit(
+          ...EmitResponse.Error({
+            eventEmit: ErrorEventNames.ORDER_ERROR,
+            payloadEventKey: ErrorEventNames.ORDER_ERROR,
+            message: `Order ${data.orderId} not found or can't be filled`,
+          }),
+        );
+        return;
       }
 
-      socket.emit(OutgoingEventNames.ORDER_FILLED, filledOrder);
+      // Notify client
+      socket.emit(
+        ...EmitResponse.Success({
+          eventEmit: OutgoingEventNames.ORDER_FILLED,
+          payloadEventKey: OutgoingEventNames.ORDER_FILLED,
+          message: 'An Order has been filled.',
+          data: filledOrder,
+        }),
+      );
 
-      // Broadcast to subscribed room
-      if (filledOrder.pair) {
-        this.#nameSpace.to(filledOrder.pair).emit(
-          OutgoingEventNames.ORDER_BOOK_UPDATE,
-          EmitResponse.Success({
-            event: ErrorEventNames.ORDER_FILLED,
+      // Broadcast to all subscribers of that pair
+      this.#io
+        .of('/subscription')
+        .to(filledOrder.pair)
+        .emit(
+          ...EmitResponse.Success({
+            eventEmit: OutgoingEventNames.ORDER_BOOK_UPDATE,
+            payloadEventKey: OutgoingEventNames.ORDER_FILLED,
             message: 'An Order has been filled.',
             data: filledOrder,
           }),
         );
-      }
     } catch (error) {
       this.handleError(socket, {
         ...error,
@@ -196,9 +218,9 @@ export class OrderSocketController {
       context: '[OrderSocketController]',
     });
     return socket.emit(
-      ErrorEventNames.GATEWAY_ERROR,
-      EmitResponse.Error({
-        event: ErrorEventNames.GATEWAY_ERROR,
+      ...EmitResponse.Error({
+        eventEmit: ErrorEventNames.GATEWAY_ERROR,
+        payloadEventKey: ErrorEventNames.GATEWAY_ERROR,
         message: error.message || 'An error occurred',
         error,
       }),

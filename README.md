@@ -1,305 +1,187 @@
-# Real-Time Trade API
+# 🚀 Real-Time Trading API
 
-![License](https://img.shields.io/badge/license-MIT-blue.svg)
+## 📖 Table of Contents
 
-Real-Time Trade API is a robust and scalable backend service designed to handle real-time trading operations. Leveraging modern technologies such as Socket.io, Redis, and Express.js, this API facilitates efficient order management, trade execution, and real-time updates for trading pairs. It ensures high performance, reliability, and maintainability, making it ideal for applications requiring real-time trading capabilities.
-
-## Table of Contents
-
-- [Features](#features)
+- [Overview](#overview)
 - [Tech Stack](#tech-stack)
+- [Architecture & Design](#architecture--design)
+- [Directory Structure](#directory-structure)
+- [WebSocket Events & API Docs](#websocket-events--api-docs)
 - [Getting Started](#getting-started)
-  - [Prerequisites](#prerequisites)
-  - [Installation](#installation)
-  - [Environment Configuration](#environment-configuration)
-- [Running the Application](#running-the-application)
-  - [Using Docker Compose](#using-docker-compose)
-  - [Development Mode](#development-mode)
-- [Available Scripts](#available-scripts)
-- [Testing](#testing)
-- [Linting and Formatting](#linting-and-formatting)
-- [Documentation](#documentation)
-- [Architecture](#architecture)
-- [References](#references)
+- [Environment Variables](#environment-variables)
+- [Docker Setup](#docker-setup)
+- [Development & Testing](#development--testing)
+- [License](#license)
+- [Contribution](#contribution)
+- [Contact](#contact)
+
+## 🌟 Overview
+
+The **Real-Time Trading API** is a **high-performance WebSocket-based** system designed for cryptocurrency trading. It enables:
+
+- **Order management** (creation, cancellation, and execution)
+- **Real-time trade execution** using a **matching engine**
+- **WebSocket-based event-driven architecture**
+- **Redis-based caching & persistence**
+- **Scalability** with **Redis Streams Adapter for Socket.IO** to ensure real-time consistency
+
+## 🛠️ Tech Stack
+
+- **JavaScript (ESNext)** → Modern ECMAScript features.
+- **Express.js** → Fast and scalable Node.js framework.
+- **Socket.IO** → Handles WebSocket real-time communication.
+- **Redis & ioredis** → Used for caching and persistence.
+- **Socket.IO Redis Streams Adapter** → Prevents TCP package loss and ensures event consistency.
+- **Webpack & Babel** → Transpiles and bundles ESNext code.
+- **Jest** → Unit testing framework.
+- **Docker & Docker Compose** → Containerized deployment.
+- **ESLint & Prettier** → Code quality and formatting.
+- **AsyncAPI** → API documentation for WebSocket events.
+
+## 🏗️ Architecture & Design
 
-## Features
+### Why Socket.IO Instead of WebSocket?
 
-- **Real-Time Communication:** Utilizes Socket.io with Redis Streams Adapter to handle real-time events, ensuring reliable and efficient communication between clients and the server.
-- **Order Management:** Supports creating, cancelling, and filling orders with robust validation and persistence using Redis.
-- **Trade Execution:** Automatically matches top buy and sell orders, executing trades and updating order statuses.
-- **Subscription Management:** Allows clients to subscribe to specific trading pairs to receive real-time updates on order books and trades.
-- **Scalability:** Designed to handle a large number of concurrent connections and high-frequency trading operations.
-- **Comprehensive Documentation:** Uses AsyncAPI for detailed documentation of Socket.io events, facilitating easy integration and maintenance.
+- **Automatic Reconnection** → Handles disconnections gracefully.
+- **Event-Based Communication** → Provides built-in event handling instead of raw messages.
+- **Room Management** → Allows grouping clients into rooms, making broadcasting efficient.
+- **Scalability with Redis** → Works seamlessly with Redis Streams Adapter for distributed setups.
 
-## Tech Stack
+### Room-Based Subscription Model
 
-- **Language:** JavaScript (ESNext)
-- **Runtime:** Node.js
-- **Framework:** Express.js
-- **Real-Time Communication:** Socket.io with Redis Streams Adapter
-- **Database:** Redis (using ioredis)
-- **Build Tools:** Webpack, Babel
-- **Testing:** Jest
-- **Containerization:** Docker, Docker Compose
-- **Linting & Formatting:** ESLint, Prettier
-- **Documentation:** AsyncAPI
+Each trading pair is represented as a **room** in Socket.IO. Clients subscribe to rooms to receive updates:
 
-## Getting Started
+1. **User subscribes to a trading pair** (e.g., `ETH_USD`) by joining the **`/subscription` namespace** and entering the room `ETH_USD`.
+2. **User creates a buy order (bid)**. If a **sell order (ask)** already exists at the same price, they can be matched.
+3. **Matching engine processes the top orders**:
+   - `matchTopOrders` event is emitted.
+   - If prices/quantities are not equal, a **partial fill** occurs.
+4. **Trade execution event (`tradeExecuted`) is broadcasted** to users in the subscribed room.
 
-### Prerequisites
+### Why Redis Streams Adapter?
 
-- **Node.js:** v16.x or later
-- **Yarn:** v1.x or later
-- **Docker:** v20.x or later
-- **Docker Compose:** v1.29.x or later
+- **Ensures event delivery** → Prevents TCP packet loss.
+- **Supports multi-instance deployments** → Scales WebSocket events across multiple API instances.
+- **Event persistence** → Temporarily stores events to handle unexpected client disconnections.
 
-### Installation
+### Why Redis Hash & Sorted Set?
 
-1. **Clone the Repository:**
+- **Redis Hash** → Stores **individual orders and trades**, enabling fast lookups.
+- **Redis Sorted Set** → Used for **order books**:
+  - **Bids (BUY orders)** → Negative price scores (highest first).
+  - **Asks (SELL orders)** → Positive price scores (lowest first).
 
-   ```bash
-   git clone https://github.com/remidosol/real-time-trade-api.git
-   cd real-time-trade-api
-   ```
+## 📂 Directory Structure
 
-2. **Install Dependencies:**
+```
+real-time-trade-api
+├── secrets/                   # Environment variables
+├── src/                       # Main source code
+│   ├── config/                # Configuration (Redis, env variables)
+│   ├── core/                  # Core utilities (middleware, logging, exceptions)
+│   ├── modules/               # Business logic modules
+│   │   ├── events/            # Event constants & validation
+│   │   ├── order/             # Order management logic
+│   │   ├── trade/             # Trade execution logic
+│   │   ├── subscription/      # WebSocket subscription handling
+│   ├── app.js                 # Express & Socket.IO initialization
+│   ├── index.js               # Main entry point
+├── tests/                     # Jest test setup
+├── docker-compose.yml         # Docker Compose setup
+├── Dockerfile.dev             # Development Dockerfile
+├── Dockerfile.prod            # Production Dockerfile
+├── package.json               # Node.js dependencies & scripts
+├── asyncapi.yaml              # WebSocket API documentation
+└── README.md                  # This file
+```
 
-   ```bash
-   yarn install
-   ```
+## 📡 WebSocket Events & API Docs
 
-### Environment Configuration
+The API uses **WebSocket (Socket.IO)** for event-driven communication. For a full list of **supported events and payload schemas**, refer to the **[AsyncAPI Documentation](./asyncapi.yaml)**.
 
-1. **Setup Environment Variables:**
+## 🚀 Getting Started
 
-   - Copy the example environment variables file:
+### 1️⃣ Install Dependencies
 
-     ```bash
-     cp secrets/.env.example secrets/.env
-     ```
+```sh
+yarn install
+```
 
-   - Open `secrets/.env` and configure the necessary environment variables:
+### 2️⃣ Run Locally (Without Docker)
 
-     ```env
-     NODE_ENV=dev
-     PORT=3333
-     REDIS_HOST=redis
-     REDIS_PORT=6379
-     ```
+```sh
+yarn start:dev
+```
 
-   **Note:** Ensure that sensitive information is kept secure and `.env` is excluded from version control.
+### 3️⃣ Run with Docker Compose
 
-## Running the Application
+```sh
+docker-compose up --build
+```
 
-### Using Docker Compose
+### 4️⃣ Build and Run the Production Version
 
-The application is containerized using Docker, facilitating easy setup and deployment.
+```sh
+yarn build
+yarn start:bundled
+```
 
-1. **Start Services:**
+## 📜 Environment Variables
 
-   ```bash
-   docker-compose up -d --build
-   ```
+Configuration is managed via `.env` files. See **[.env.example](./secrets/.env.example)** for required environment variables.
 
-   This command will build and start the Redis and Trade API services in detached mode.
+```env
+NODE_ENV=dev
+PORT=3333
+REDIS_HOST=redis
+REDIS_PORT=6379
+```
 
-2. **Verify Services:**
+## 🐳 Docker Setup
 
-   - **Redis:** Accessible on `localhost:6379`.
-   - **Trade API:** Accessible on `localhost:3333`.
+This project uses **Docker Compose** for managing dependencies:
 
-3. **Stopping Services:**
+- **Redis** → Used for caching and event distribution.
+- **Trade API** → The main service running Express.js & Socket.IO.
 
-   ```bash
-   docker-compose down
-   ```
+Start the project with:
 
-### Development Mode
+```sh
+docker-compose up --build
+```
 
-For development purposes, you can run the application directly without Docker.
+## 🛠️ Development & Testing
 
-1. **Start Redis:**
+### **Lint & Format Code**
 
-   Ensure that a Redis server is running locally on port `6379`. You can start Redis using Docker:
+```sh
+yarn lint
+yarn format
+```
 
-   ```bash
-   docker run -d --name redis_server -p 6379:6379 redis:7-alpine
-   ```
+### **Run Tests**
 
-2. **Start the Application:**
+```sh
+yarn test
+```
 
-   ```bash
-   yarn start:dev
-   ```
+## 📌 Modules Overview
 
-   This will start the application in development mode with hot-reloading enabled.
+- **[Order Module](./src/modules/order/README.md)** → Manages order creation, cancellation, and execution.
+- **[Trade Module](./src/modules/trade/README.md)** → Matches buy/sell orders and executes trades.
+- **[Subscription Module](./src/modules/subscription/README.md)** → Handles WebSocket subscriptions to order book updates.
+- **[Events Module](./src/modules/events/README.md)** → Defines event constants and validation schemas.
+- **[Core Utilities](./src/core/README.md)** → Logging, middleware, and global utilities.
+- **[Config](./src/config/README.md)** → Environment variables and Redis configuration.
 
-## Available Scripts
+## 📖 License
 
-- **Build:**
+This project is licensed under the **MIT License**.
 
-  ```bash
-  yarn build
-  ```
+## 🤝 Contribution
 
-  Bundles the application using Webpack.
+Feel free to submit issues, feature requests, or contribute to the project.
 
-- **Start:**
+## 📬 Contact
 
-  ```bash
-  yarn start
-  ```
-
-  Starts the application using Node.js.
-
-- **Start Development:**
-
-  ```bash
-  yarn start:dev
-  ```
-
-  Starts the application in development mode with hot-reloading.
-
-- **Generate Documentation:**
-
-  ```bash
-  yarn docs:generate
-  ```
-
-  Generates AsyncAPI documentation for Socket.io events.
-
-- **Test:**
-
-  ```bash
-  yarn test
-  ```
-
-  Runs unit tests using Jest.
-
-- **Lint:**
-
-  ```bash
-  yarn lint
-  ```
-
-  Runs ESLint to identify and fix linting issues.
-
-- **Fix Lint:**
-
-  ```bash
-  yarn lint:fix
-  ```
-
-  Automatically fixes linting issues where possible.
-
-- **Format:**
-
-  ```bash
-  yarn format
-  ```
-
-  Formats the codebase using Prettier.
-
-## Testing
-
-The application uses [Jest](https://jestjs.io/) for unit testing.
-
-- **Run Tests:**
-
-  ```bash
-  yarn test
-  ```
-
-- **Test Coverage:**
-
-  Jest can be configured to provide test coverage reports.
-
-  ```bash
-  yarn test --coverage
-  ```
-
-**Note:** Ensure that tests are written for critical components to maintain code quality and reliability.
-
-## Linting and Formatting
-
-Maintaining consistent code style and quality is crucial for collaboration and maintainability.
-
-- **Linting:**
-
-  The project uses [ESLint](https://eslint.org/) with the Airbnb base configuration.
-
-  - **Run Linter:**
-
-    ```bash
-    yarn lint
-    ```
-
-  - **Fix Linting Issues:**
-
-    ```bash
-    yarn lint:fix
-    ```
-
-- **Formatting:**
-
-  [Prettier](https://prettier.io/) is used for code formatting.
-
-  - **Format Code:**
-
-    ```bash
-    yarn format
-    ```
-
-- **Pre-Commit Hooks:**
-
-  [Husky](https://typicode.github.io/husky/) and [lint-staged](https://github.com/okonet/lint-staged) are configured to run linting and formatting on staged files before commits.
-
-## Documentation
-
-Comprehensive documentation is provided using [AsyncAPI](https://www.asyncapi.com/) to describe the Socket.io events and their payloads.
-
-- **Generate Documentation:**
-
-  ```bash
-  yarn docs:generate
-  ```
-
-  This command generates HTML documentation from the `asyncapi.yaml` file, outputting it to the `docs` directory.
-
-- **Access Documentation:**
-
-  Open the generated documentation in the `docs` directory using a web browser.
-
-## Architecture
-
-The application follows a modular architecture, organizing related functionalities into distinct modules for better maintainability and scalability. Each module encapsulates its own controllers, services, repositories, models, and data transfer objects (DTOs). Below is a summary of each module:
-
-### Modules Overview
-
-- **[Events Module](./src/modules/events/README.md):**
-  Centralizes the definition and management of event names and validation schemas used across the application, ensuring consistent real-time communication.
-
-- **[Order Module](./src/modules/order/README.md):**
-  Manages order-related operations, including creating, cancelling, and filling orders. It interacts with Redis to maintain the order book and ensures real-time updates.
-
-- **[Subscription Module](./src/modules/subscription/README.md):**
-  Handles client subscriptions to specific trading pairs, enabling clients to receive real-time updates on order books and trades for their subscribed pairs.
-
-- **[Trade Module](./src/modules/trade/README.md):**
-  Orchestrates trade execution by matching buy and sell orders, recording executed trades, and providing recent trade data to clients.
-
-## References
-
-- **[Inner Module READMEs](./src/modules/README.md):** Detailed documentation for each module.
-- **[AsyncAPI Documentation](./asyncapi.yaml):** Defines the Socket.io events and their payloads.
-- **[Docker Documentation](https://docs.docker.com/):** For understanding Docker and Docker Compose configurations.
-- **[Express.js](https://expressjs.com/):** Web framework for Node.js.
-- **[Socket.io](https://socket.io/):** Enables real-time, bidirectional communication between web clients and servers.
-- **[Redis](https://redis.io/):** In-memory data structure store used for caching and persistence.
-- **[Winston](https://github.com/winstonjs/winston):** Logging library for Node.js.
-- **[Zod](https://github.com/colinhacks/zod):** TypeScript-first schema validation with static type inference.
-- **[Jest](https://jestjs.io/):** JavaScript testing framework.
-- **[Webpack](https://webpack.js.org/):** Module bundler.
-- **[Babel](https://babeljs.io/):** JavaScript compiler.
-- **[ESLint](https://eslint.org/):** Pluggable linting utility for JavaScript.
-- **[Prettier](https://prettier.io/):** Opinionated code formatter.
+- GitHub: [remidosol](https://github.com/remidosol)

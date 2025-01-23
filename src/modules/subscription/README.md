@@ -1,81 +1,39 @@
-# Subscription Module
-
-The `subscription` module manages client subscriptions to specific trading pairs, enabling real-time updates and interactions related to those pairs. It ensures that clients receive the latest order book data and can efficiently manage their subscriptions through Socket.io events.
-
-## Table of Contents
-
-- [Overview](#overview)
-- [Components](#components)
-  - [Controllers](#controllers)
-  - [Data Transfer Objects (DTOs)](#data-transfer-objects-dtos)
-- [Usage](#usage)
-- [Best Practices](#best-practices)
+# 📖 Subscription Module
 
 ## Overview
 
-The `subscription` module facilitates real-time subscription management for trading pairs. Clients can subscribe or unsubscribe to specific pairs, and request the top orders for those pairs. This module leverages Socket.io for real-time communication and ensures data integrity through rigorous validation using Zod schemas.
+The **Subscription Module** handles WebSocket-based real-time subscriptions to order book updates. It allows clients to:
 
-## Components
+- **Subscribe** to specific trading pairs.
+- **Unsubscribe** from trading pairs.
+- **Retrieve top bids/asks** for subscribed trading pairs.
 
-### Controllers
+This module ensures efficient real-time updates using **Socket.IO namespaces** and **room-based subscriptions**.
 
-**File:** `controllers/SubscriptionSocketController.js`
+## 📂 Directory Structure
 
-**Description:**
-
-Handles Socket.io events related to subscription management. It listens for events such as `subscribePair`, `unsubscribePair`, and `getTopOrderBook`, processes these requests using the service layer, and emits appropriate responses or updates to clients.
-
-**Key Responsibilities:**
-
-- **Managing Subscriptions:** Allows clients to subscribe or unsubscribe from specific trading pairs.
-- **Fetching Order Books:** Provides clients with the top N bids and asks for a given trading pair.
-- **Error Handling:** Emits standardized error responses in case of validation failures or operational issues.
-
-**Usage:**
-
-```javascript
-import { Server } from 'socket.io';
-import { SubscriptionSocketController } from './controllers/SubscriptionSocketController.js';
-
-const io = new Server(3000, {
-  cors: {
-    origin: '*',
-    methods: ['GET', 'POST'],
-  },
-});
-
-// Initialize Subscription Socket Controller
-new SubscriptionSocketController(io);
-
-console.log('Socket.io server is running on port 3000');
+```
+subscription
+├── controllers
+│   └── SubscriptionSocketController.js  # Handles WebSocket subscription events
+├── dtos
+│   ├── index.js                        # DTO export handler
+│   ├── subscriptionPairDto.js          # DTO for subscribing to pairs
+│   └── topOrderDto.js                   # DTO for retrieving top order book
+├── index.js                             # Module export
+└── README.md                            # Documentation
 ```
 
-### Data Transfer Objects (DTOs)
+## 📌 Key Components
 
-**Directory:** `dtos/`
+### **1️⃣ Subscription DTOs (`dtos/`)**
 
-**Files:**
+Defines **schema-based validation** for incoming subscription-related events using **Zod**.
 
-- `subscriptionPairDto.js`
-- `index.js`
+#### **🔹 SubscriptionPairRequestDto (`subscriptionPairDto.js`)**
 
-**Description:**
-
-Defines schemas for validating incoming data related to subscription events using [Zod](https://github.com/colinhacks/zod). Ensures that the data received from clients adheres to the expected structure and types, enhancing reliability and security.
-
-**Key Components:**
-
-- **subscriptionPairRequestDto:** Validates data for subscribing or unsubscribing to a trading pair.
-
-**Example:**
-
-```javascript
-// dtos/subscriptionPairDto.js
-
-import { z } from 'zod';
-import { SupportedPairs } from '../../../core/globalConstants.js';
-
-export const subscriptionPairRequestDto = z.object({
+```js
+export const SubscriptionPairRequestDto = z.object({
   pair: z.enum(Object.values(SupportedPairs), {
     message: `pair property should be one of these values: ${Object.values(SupportedPairs)}`,
   }),
@@ -86,98 +44,90 @@ export const subscriptionPairRequestDto = z.object({
 });
 ```
 
-**Usage:**
+#### **🔹 TopOrderRequestDto (`topOrderDto.js`)**
 
-The DTOs are integrated within the middleware to automatically validate incoming Socket.io events.
-
-```javascript
-import { socketDtoMiddleware } from '../../../core/middlewares/validateSocket.js';
-import { EventSchemas } from '../../events/validationSchemas.js';
-import { Server } from 'socket.io';
-
-const io = new Server(3000);
-
-// Apply validation middleware
-io.of('/subscription').use(socketDtoMiddleware(EventSchemas));
-
-// Initialize Subscription Socket Controller
-new SubscriptionSocketController(io);
+```js
+export const topOrderRequestDto = z.object({
+  limit: z
+    .number({ message: 'limit must be number' })
+    .positive('limit must be positive')
+    .optional(),
+});
 ```
 
-## Usage
+### **2️⃣ Subscription WebSocket Controller (`SubscriptionSocketController.js`)**
 
-1. **Importing the Subscription Module:**
+Manages WebSocket event handling using **Socket.IO namespaces and rooms**:
 
-   ```javascript
-   import { SubscriptionSocketController } from './modules/subscription/controllers/SubscriptionSocketController.js';
-   ```
+- Listens for events:
+  - `subscribePair` → Subscribes a client to a trading pair.
+  - `unsubscribePair` → Unsubscribes a client from a trading pair.
+  - `getTopOrderBook` → Retrieves the top N bids and asks.
+- Uses **Socket.IO rooms** to group subscribers by trading pair.
+- Emits updates to subscribed clients.
 
-2. **Initializing with Socket.io:**
+#### **🔹 Subscription Logic**
 
-   ```javascript
-   import { Server } from 'socket.io';
-   import { SubscriptionSocketController } from './modules/subscription/controllers/SubscriptionSocketController.js';
-   
-   const io = new Server(3000, {
-     cors: {
-       origin: '*',
-       methods: ['GET', 'POST'],
-     },
-   });
-   
-   // Initialize Subscription Socket Controller
-   new SubscriptionSocketController(io);
-   
-   console.log('Socket.io server is running on port 3000');
-   ```
+- Clients **join a room** corresponding to a trading pair when subscribing.
+- Clients **leave the room** when unsubscribing.
+- When an order book update occurs, only **clients in the relevant rooms** receive updates.
 
-3. **Client-Side Interaction:**
+#### **🔹 Subscription Event Handling**
 
-   - **Subscribe to a Pair:**
+```js
+socket.on(IncomingEventNames.SUBSCRIBE_PAIR, (data) =>
+  this.handleSubscribePair(socket, data),
+);
 
-     ```javascript
-     socket.emit(IncomingEventNames.SUBSCRIBE_PAIR, { pair: SupportedPairs.BTC_USD, limit: 10 });
-     ```
+socket.on(IncomingEventNames.UNSUBSCRIBE_PAIR, async (data) =>
+  this.handleUnsubscribePair(socket, data),
+);
 
-   - **Unsubscribe from a Pair:**
+socket.on(IncomingEventNames.GET_TOP_ORDER_BOOK, async (data) =>
+  this.handleGetTopOrderBook(socket, data),
+);
+```
 
-     ```javascript
-     socket.emit(IncomingEventNames.UNSUBSCRIBE_PAIR, { pair: SupportedPairs.BTC_USD });
-     ```
+#### **🔹 Subscription Room Management**
 
-   - **Request Top Order Book:**
+```js
+async handleSubscribePair(socket, data) {
+  await socket.join(data.pair);
+  socket.emit(OutgoingEventNames.SUBSCRIBED, {
+    success: true,
+    message: `Subscribing to ${data.pair} pair is successful`
+  });
+}
 
-     ```javascript
-     socket.emit(IncomingEventNames.GET_TOP_ORDER_BOOK, { pair: SupportedPairs.BTC_USD, limit: 5 });
-     ```
+async handleUnsubscribePair(socket, data) {
+  await socket.leave(data.pair);
+  socket.emit(OutgoingEventNames.UNSUBSCRIBED, {
+    success: true,
+    message: `Unsubscribing to ${data.pair} pair is successful`
+  });
+}
+```
 
-4. **Handling Server Responses:**
+## 📡 WebSocket Events
 
-   Listen for events such as `subscribed`, `unsubscribed`, and `topOrderBook` to receive updates.
+### **📤 Client → Server Events**
 
-   ```javascript
-   socket.on(OutgoingEventNames.SUBSCRIBED, (response) => {
-     console.log('Subscribed:', response);
-   });
-   
-   socket.on(OutgoingEventNames.UNSUBSCRIBED, (response) => {
-     console.log('Unsubscribed:', response);
-   });
-   
-   socket.on(OutgoingEventNames.TOP_ORDER_BOOK, (data) => {
-     console.log('Top Order Book:', data);
-   });
-   
-   socket.on(ErrorEventNames.SUBSCRIPTION_ERROR, (error) => {
-     console.error('Subscription Error:', error);
-   });
-   ```
+| Event Name        | Payload Schema            | Description                              |
+|------------------|--------------------------|------------------------------------------|
+| `subscribePair`  | `{ pair }`                | Subscribe to order book updates         |
+| `unsubscribePair`| `{ pair }`                | Unsubscribe from order book updates     |
+| `getTopOrderBook` | `{ limit? }`             | Retrieve top N bids and asks            |
 
-## Best Practices
+### **📥 Server → Client Events**
 
-- **Consistent Validation:** Always use the defined DTOs to validate incoming data, preventing malformed or malicious inputs.
-- **Error Handling:** Utilize the standardized error responses to provide clear feedback to clients and facilitate easier debugging.
-- **Modular Architecture:** Maintain separation of concerns by keeping controllers, DTOs, and services distinct, enhancing code maintainability.
-- **Logging:** Leverage the centralized `logger` to record significant events and errors, aiding in monitoring and troubleshooting.
-- **Resource Management:** Ensure that clients properly unsubscribe from trading pairs to manage server resources effectively and prevent unnecessary data transmission.
-- **Scalability:** Design the subscription logic to handle a large number of concurrent subscriptions efficiently, leveraging Redis and Socket.io optimally.
+| Event Name         | Payload Schema                           | Description                              |
+|-------------------|--------------------------------------|------------------------------------------|
+| `subscribed`     | `{ success, message }` | Confirmation of successful subscription |
+| `unsubscribed`   | `{ success, message }` | Confirmation of successful unsubscription |
+| `topOrderBook`   | `{ event: "topOrderBook", success, data: { ETH_USD: { bids, asks } } }` | Response with top order book data       |
+
+## 🎯 Future Enhancements
+
+- **Implement persistence layer** for long-term subscription tracking.
+- **Enhance filtering options** for clients to customize data streams.
+- **Optimize Redis event propagation** for lower latency updates.

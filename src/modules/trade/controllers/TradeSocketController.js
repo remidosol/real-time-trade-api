@@ -63,14 +63,12 @@ export class TradeSocketController {
       const { pair } = data;
       const trade = await this.#tradeService.matchTopOrders(pair);
 
-      console.log('trade:', trade);
-
       if (!trade) {
         //no match
         return socket.emit(
-          OutgoingEventNames.NO_TRADE,
-          EmitResponse.Success({
-            event: ErrorEventNames.NO_TRADE,
+          ...EmitResponse.Success({
+            eventEmit: OutgoingEventNames.NO_TRADE,
+            payloadEventKey: OutgoingEventNames.NO_TRADE,
             message: 'No matching orders',
             data: pair,
           }),
@@ -79,9 +77,9 @@ export class TradeSocketController {
 
       // Emit the trade to the client
       socket.emit(
-        OutgoingEventNames.TRADE_EXECUTED,
-        EmitResponse.Success({
-          event: ErrorEventNames.TRADE_EXECUTED,
+        ...EmitResponse.Success({
+          eventEmit: OutgoingEventNames.TRADE_EXECUTED,
+          payloadEventKey: OutgoingEventNames.TRADE_EXECUTED,
           message: 'Trade has been executed',
           data: trade,
         }),
@@ -92,9 +90,9 @@ export class TradeSocketController {
         .of('/subscription')
         .to(pair)
         .emit(
-          OutgoingEventNames.TRADE_UPDATE,
-          EmitResponse.Success({
-            event: ErrorEventNames.TRADE_EXECUTED,
+          ...EmitResponse.Success({
+            eventEmit: OutgoingEventNames.TRADE_UPDATE,
+            payloadEventKey: OutgoingEventNames.TRADE_EXECUTED,
             message: `A trade has been executed for the pair ${pair}`,
             data: trade,
           }),
@@ -123,7 +121,13 @@ export class TradeSocketController {
       const { pair, limit } = data;
       const trades = await this.#tradeService.getRecentTrades(pair, limit);
 
-      socket.emit(OutgoingEventNames.RECENT_TRADES, { pair, trades });
+      socket.emit(
+        ...EmitResponse.Success({
+          eventEmit: OutgoingEventNames.RECENT_TRADES,
+          payloadEventKey: OutgoingEventNames.RECENT_TRADES,
+          data: { pair, trades },
+        }),
+      );
     } catch (err) {
       this.handleError(socket, {
         ...err,
@@ -145,9 +149,9 @@ export class TradeSocketController {
       context: '[TradeSocketController]',
     });
     return socket.emit(
-      ErrorEventNames.TRADE_ERROR,
-      EmitResponse.Error({
-        event: ErrorEventNames.TRADE_ERROR,
+      ...EmitResponse.Error({
+        eventEmit: ErrorEventNames.TRADE_ERROR,
+        payloadEventKey: ErrorEventNames.TRADE_ERROR,
         message: error.message || 'An error occurred',
         error,
       }),

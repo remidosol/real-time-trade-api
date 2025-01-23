@@ -63,9 +63,9 @@ export class SubscriptionSocketController {
 
     if (await this.#isSubscribed(socket, data.pair)) {
       socket.emit(
-        ErrorEventNames.SUBSCRIPTION_ERROR,
-        EmitResponse.Error({
-          event: ErrorEventNames.SUBSCRIPTION_ERROR,
+        ...EmitResponse.Success({
+          eventEmit: ErrorEventNames.SUBSCRIPTION_ERROR,
+          payloadEventKey: ErrorEventNames.SUBSCRIPTION_ERROR,
           message: `You already subscribed to ${data.pair}`,
         }),
       );
@@ -79,10 +79,10 @@ export class SubscriptionSocketController {
     );
 
     socket.emit(
-      OutgoingEventNames.SUBSCRIBED,
-      EmitResponse.Success({
-        event: ErrorEventNames.SUBSCRIBED,
-        message: `Subscribing to ${data.pair} pair is successfull`,
+      ...EmitResponse.Success({
+        eventEmit: OutgoingEventNames.SUBSCRIBED,
+        payloadEventKey: OutgoingEventNames.SUBSCRIBED,
+        message: `Subscribing to ${data.pair} pair is successful`,
       }),
     );
   }
@@ -100,10 +100,10 @@ export class SubscriptionSocketController {
 
     if (!(await this.#isSubscribed(socket, data.pair))) {
       socket.emit(
-        ErrorEventNames.SUBSCRIPTION_ERROR,
-        EmitResponse.Error({
-          event: ErrorEventNames.SUBSCRIPTION_ERROR,
-          message: `You already did not subscribed to ${data.pair}`,
+        ...EmitResponse.Error({
+          eventEmit: ErrorEventNames.SUBSCRIPTION_ERROR,
+          payloadEventKey: ErrorEventNames.SUBSCRIPTION_ERROR,
+          message: `You are not subscribed to ${data.pair}`,
         }),
       );
       return;
@@ -116,10 +116,10 @@ export class SubscriptionSocketController {
     );
 
     socket.emit(
-      OutgoingEventNames.UNSUBSCRIBED,
-      EmitResponse.Success({
-        event: ErrorEventNames.UNSUBSCRIBED,
-        message: `Unsubscribing to ${data.pair} pair is successfull`,
+      ...EmitResponse.Success({
+        eventEmit: OutgoingEventNames.UNSUBSCRIBED,
+        payloadEventKey: OutgoingEventNames.UNSUBSCRIBED,
+        message: `Unsubscribing to ${data.pair} pair is successful`,
       }),
     );
   }
@@ -148,14 +148,14 @@ export class SubscriptionSocketController {
           this.#orderService.getTopAsks(pair, limit),
         ]);
 
-        bidsAsksOfSubscribedPairs[pair] = [bids, asks];
+        bidsAsksOfSubscribedPairs[pair] = { bids, asks };
       }
 
       // Respond to the requester
       socket.emit(
-        OutgoingEventNames.TOP_ORDER_BOOK,
-        EmitResponse.Success({
-          event: OutgoingEventNames.TOP_ORDER_BOOK,
+        ...EmitResponse.Success({
+          eventEmit: OutgoingEventNames.TOP_ORDER_BOOK,
+          payloadEventKey: OutgoingEventNames.TOP_ORDER_BOOK,
           data: { ...bidsAsksOfSubscribedPairs },
         }),
       );
@@ -180,9 +180,9 @@ export class SubscriptionSocketController {
       context: '[SubscriptionSocketController]',
     });
     return socket.emit(
-      ErrorEventNames.GATEWAY_ERROR,
-      EmitResponse.Error({
-        event: ErrorEventNames.GATEWAY_ERROR,
+      ...EmitResponse.Error({
+        eventEmit: ErrorEventNames.GATEWAY_ERROR,
+        payloadEventKey: ErrorEventNames.GATEWAY_ERROR,
         message: error.message || 'An error occurred',
         error,
       }),

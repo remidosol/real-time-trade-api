@@ -1,2 +1,2 @@
-export * from './constants.js';
+export * from './eventConstants.js';
 export * from './validationSchemas.js';

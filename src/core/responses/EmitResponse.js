@@ -1,27 +1,22 @@
-import {
-  OutgoingEventNames,
-  ErrorEventNames,
-} from '../../modules/events/index.js';
-
 export class EmitResponse {
   /**
    * Constructs an EmitResponse instance.
    *
-   * @param {{event:OutgoingEventNames|ErrorEventNames; success: boolean; message: string; data: any; error: any}} response
-   * @property event - Indicates the relevant event name
+   * @param {{event: string; success: boolean; message: string; data: any; error: any}} response
+   * @property payloadEventKey - Indicates the relevant event name
    * @property success - Indicates if the operation was successful.
    * @property message - A descriptive message about the operation's result.
    * @property [data] - Optional data returned from the operation.
    * @property [error] - Optional error message if the operation failed.
    */
   constructor({
-    event,
+    payloadEventKey,
     success,
     message = undefined,
     data = undefined,
     error = undefined,
   }) {
-    this.event = event;
+    this.payloadEventKey = payloadEventKey;
     this.success = success;
     this.message = message;
 
@@ -37,28 +32,47 @@ export class EmitResponse {
   /**
    * Creates a success EmitResponse.
    *
-   * @param {{event:OutgoingEventNames|ErrorEventNames; message: string; data: any;}} response
+   * @param {{eventEmit: string; payloadEventKey: string; message: string; data: any;}} response
    *
-   * @returns {EmitResponse}
+   * @returns {[string, EmitResponse]}
    */
-  static Success({ event, message = undefined, data = undefined }) {
-    return new EmitResponse({ event, success: true, message, data });
+  static Success({
+    eventEmit,
+    payloadEventKey,
+    message = undefined,
+    data = undefined,
+  }) {
+    const resp = new EmitResponse({
+      event: payloadEventKey,
+      success: true,
+      message,
+      data,
+    });
+
+    return [eventEmit, resp];
   }
 
   /**
    * Creates an error EmitResponse.
    *
-   * @param {{event:OutgoingEventNames|ErrorEventNames; message: string; error: any}} response
+   * @param {{eventEmit: string; payloadEventKey: string; message: string; error: any}} response
    *
    * @returns {EmitResponse}
    */
-  static Error({ event, message = undefined, error = null }) {
-    return new EmitResponse({
-      event,
+  static Error({
+    eventEmit,
+    payloadEventKey,
+    message = undefined,
+    error = null,
+  }) {
+    const resp = new EmitResponse({
+      payloadEventKey,
       success: false,
       message,
       data: null,
       error,
     });
+
+    return [eventEmit, resp];
   }
 }

@@ -7,11 +7,12 @@ import {
   topOrderRequestDto,
 } from '../subscription/index.js';
 import { tradePairRequestDto } from '../trade/index.js';
-import { IncomingEventNames } from './constants.js';
+import { IncomingEventNames } from './eventConstants.js';
 
 export const EventSchemas = {
   [IncomingEventNames.CREATE_ORDER]: createOrderRequestDto,
   [IncomingEventNames.CANCEL_ORDER]: cancelOrderRequestDto,
+  [IncomingEventNames.FILL_ORDER]: cancelOrderRequestDto,
   [IncomingEventNames.SUBSCRIBE_PAIR]: subscriptionPairRequestDto,
   [IncomingEventNames.UNSUBSCRIBE_PAIR]: subscriptionPairRequestDto,
   [IncomingEventNames.GET_TOP_ORDER_BOOK]: topOrderRequestDto,
