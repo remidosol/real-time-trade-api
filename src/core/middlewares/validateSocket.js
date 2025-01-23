@@ -1,5 +1,5 @@
 import { Socket } from 'socket.io';
-import { ErrorEventNames, EventSchemas } from '../events/index.js';
+import { ErrorEventNames, EventSchemas } from '../../modules/events/index.js';
 
 /**
  * To validate received payload in a socket for events

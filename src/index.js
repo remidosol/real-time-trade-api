@@ -1,5 +1,5 @@
-import logger from './core/logger/logger.js';
-import env from './core/config/env.js';
+import logger from './core/logger/Logger.js';
+import env from './config/env.js';
 import app from './app.js';
 
 const PORT = env.PORT ?? '3333';

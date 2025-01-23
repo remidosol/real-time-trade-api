@@ -1,6 +1,6 @@
 import { createLogger, format, transports } from 'winston';
 import dotenv from 'dotenv';
-import { loggerLevels } from './constants.js';
+import { loggerLevels } from './loggerConstants.js';
 
 dotenv.config({});
 

@@ -1,5 +1,5 @@
 {
-  "name": "order-book-trade",
+  "name": "real-time-trade-api",
   "main": "src/index.js",
   "type": "module",
   "license": "MIT",
@@ -18,11 +18,23 @@
     "lint:fix": "eslint . --fix",
     "format": "prettier --write ."
   },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/remidosol/real-time-trade-api"
+  },
+  "keywords": [
+    "express",
+    "socket.io",
+    "websocket",
+    "javascript",
+    "ecmascript",
+    "realtime",
+    "trading",
+    "order-book",
+    "trade"
+  ],
   "lint-staged": {
-    "*.js": [
-      "prettier --write"
-    ],
-    "*.{json,yml,yaml,md}": [
+    "*.{js,json,yml,yaml}": [
       "prettier --write"
     ]
   },

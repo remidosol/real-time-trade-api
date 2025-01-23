@@ -7,12 +7,12 @@ import path from 'path';
 import { Server as SocketIOServer } from 'socket.io';
 import { fileURLToPath } from 'url';
 import xss from 'xss-clean';
-import redisClient from './core/config/redisClient.js';
-import logger from './core/logger/logger.js';
+import redisClient from './config/RedisClient.js';
+import logger from './core/logger/Logger.js';
 import { errorConverter, errorHandler } from './core/middlewares/index.js';
-import { OrderGateway } from './order/orderGateway.js';
-import { SubscriptionGateway } from './subscription/subscriptionGateway.js';
-import { TradeGateway } from './trade/tradeGateway.js';
+import { OrderSocketController } from './modules/order/controllers/OrderSocketController.js';
+import { SubscriptionSocketController } from './modules/subscription/controllers/SubscriptionSocketController.js';
+import { TradeSocketController } from './modules/trade/controllers/TradeSocketController.js';
 
 const app = express();
 
@@ -41,9 +41,9 @@ io.on('connection', async (socket) => {
   });
 });
 
-new OrderGateway(io.of('/order'), io);
-new SubscriptionGateway(io.of('/subscription'));
-new TradeGateway(io.of('/trade'));
+new OrderSocketController(io);
+new SubscriptionSocketController(io);
+new TradeSocketController(io);
 
 app.get('/', (_req, res) => {
   res.send('Hello from Real-Time Trading API!');

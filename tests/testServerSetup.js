@@ -6,9 +6,9 @@ import { Server } from 'socket.io';
 import { EventSchemas } from '../src/core/events/index';
 import logger from '../src/core/logger/logger';
 import { socketDtoMiddleware } from '../src/core/middlewares';
-import { OrderGateway } from '../src/order/orderGateway';
-import { TradeGateway } from '../src/trade/tradeGateway';
-import { SubscriptionGateway } from '../src/subscription/subscriptionGateway';
+import { OrderSocketController } from '../src/order/orderGateway';
+import { TradeSocketController } from '../src/trade/tradeGateway';
+import { SubscriptionSocketController } from '../src/subscription/subscriptionGateway';
 
 /**
  * Creates a test server with Express & Socket.IO,
@@ -44,9 +44,9 @@ export async function createTestServer() {
   // If you want to use your actual Gateways:
   io.use(socketDtoMiddleware(EventSchemas));
 
-  new OrderGateway(io);
-  new SubscriptionGateway(io);
-  new TradeGateway(io);
+  new OrderSocketController(io);
+  new SubscriptionSocketController(io);
+  new TradeSocketController(io);
 
   app.get('/', (_req, res) => {
     res.send('Hello from Real-Time Trading API!');

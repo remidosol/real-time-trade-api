@@ -1,7 +1,7 @@
 import httpStatus from 'http-status';
-import env from '../config/env.js';
+import env from '../../config/env.js';
 import { ApiError } from '../exceptions/index.js';
-import logger from '../logger/logger.js';
+import logger from '../logger/Logger.js';
 
 export const errorConverter = (err, req, res, next) => {
   let error = err;

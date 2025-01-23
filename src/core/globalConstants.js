@@ -5,14 +5,3 @@ export const SupportedPairs = {
   LTC_USD: 'LTC_USD',
   BNB_USD: 'BNB_USD',
 };
-
-export const Sides = {
-  BUY: 'BUY',
-  SELL: 'SELL',
-};
-
-export const TradeStatus = {
-  OPEN: 'OPEN',
-  CANCELLED: 'CANCELLED',
-  FILLED: 'FILLED',
-};
