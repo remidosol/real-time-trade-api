@@ -13,6 +13,7 @@ class TradeService {
     this.#tradeRepository = tradeRepository;
     this.#orderService = orderService;
   }
+
   /**
    * Attempt to match the top buy and sell order for a pair.
    * Returns a Trade object if successful, or null if no match.
@@ -20,6 +21,8 @@ class TradeService {
    * @param {keyof SupportedPairs} pair
    */
   async matchTopOrders(pair) {
+    console.log('Matching top orders for', pair);
+
     const [bids, asks] = await Promise.all([
       this.#orderService.getTopBids(pair, 1),
       this.#orderService.getTopAsks(pair, 1),
@@ -42,7 +45,6 @@ class TradeService {
     const quantity = Math.min(topBid.quantity, topAsk.quantity);
     const price = (topBid.price + topAsk.price) / 2;
 
-    // 3) Create a Trade
     const trade = new Trade({
       tradeId: uuidv4(),
       pair,
@@ -53,10 +55,8 @@ class TradeService {
       timestamp: Date.now(),
     });
 
-    // 4) Store trade
     await this.#tradeRepository.storeTrade(trade);
 
-    // 5) Update order quantities & statuses
     const newBidQty = topBid.quantity - quantity;
     const newAskQty = topAsk.quantity - quantity;
 
@@ -74,6 +74,7 @@ class TradeService {
       //Mark ask as filled
       await this.#orderService.fillOrder(topAsk.orderId);
     } else {
+      // Partially filled
       await this.#orderService.updateOrder(topAsk.orderId, {
         quantity: newAskQty,
       });
@@ -91,10 +92,10 @@ class TradeService {
    * @returns {Promise<Trade[]>} recent trades
    */
   async getRecentTrades(pair, limit = 10) {
-    return tradeRepository.getRecentTrades(pair, limit);
+    return this.#tradeRepository.getRecentTrades(pair, limit);
   }
 }
 
 const tradeService = new TradeService();
 
-export default tradeService;
+export { tradeService };

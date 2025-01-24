@@ -5,140 +5,198 @@ info:
   x-linkedin: https://www.linkedin.com/in/ibrahim-aksut
   description: >
     This AsyncAPI specification describes our Socket.IO-based trading platform.
-    Clients can create orders, cancel orders, and subscribe to trade updates in
-    real time.
+    Clients can create orders, cancel orders, subscribe to order book updates, and
+    receive real-time trade execution notifications.
 defaultContentType: application/json
 servers:
   development:
     host: 'localhost:3333'
     pathname: /socket.io
     protocol: ws
-    description: Socket.IO server
+    description: Socket.IO WebSocket server
 channels:
   createOrder:
     address: createOrder
     messages:
-      orderCreated.message:
-        name: OrderCreatedEvent
-        title: Order Created (Event)
-        summary: >-
-          Server publishes 'orderCreated' event to notify that a new order has
-          been created.
-        payload:
-          $ref: '#/components/schemas/OrderCreatedPayload'
       createOrder.message:
         name: CreateOrderRequest
         title: Create Order (Request)
         summary: Client publishes a 'createOrder' event to create a new order.
         payload:
           $ref: '#/components/schemas/CreateOrderPayload'
+      orderCreated.message:
+        name: OrderCreatedEvent
+        title: Order Created (Event)
+        summary: >
+          Server publishes 'orderCreated' event to notify that a new order has
+          been created.
+        payload:
+          $ref: '#/components/schemas/OrderCreatedPayload'
+
   cancelOrder:
     address: cancelOrder
     messages:
-      orderCancelled.message:
-        name: OrderCancelledEvent
-        title: Order Canceled (Event)
-        payload:
-          $ref: '#/components/schemas/OrderCancelledPayload'
       cancelOrder.message:
         name: CancelOrderRequest
         title: Cancel Order (Request)
         payload:
           $ref: '#/components/schemas/CancelOrderPayload'
+      orderCancelled.message:
+        name: OrderCancelledEvent
+        title: Order Canceled (Event)
+        payload:
+          $ref: '#/components/schemas/OrderCancelledPayload'
+
   tradeExecuted:
     address: tradeExecuted
     messages:
       tradeExecuted.message:
         name: TradeExecutedEvent
         title: Trade Executed (Event)
-        summary: >-
+        summary: >
           Server publishes 'tradeExecuted' event when a matching engine executes
           a trade.
         payload:
           $ref: '#/components/schemas/TradeExecutedPayload'
+
   getTopOrderBook:
     address: getTopOrderBook
     messages:
-      topOrderBook.message:
-        name: TopOrderBookEvent
-        title: Top OrderBook (Response)
-        summary: Server responds with the top bids and asks for the pair.
-        payload:
-          $ref: '#/components/schemas/TopOrderBookPayload'
       getTopOrderBook.message:
         name: GetTopOrderBookRequest
         title: Get Top OrderBook (Request)
         summary: Client requests the top N bids/asks for a given pair.
         payload:
           $ref: '#/components/schemas/GetTopOrderBookPayload'
-operations:
-  orderCreated:
-    action: receive
-    channel:
-      $ref: '#/channels/createOrder'
+      topOrderBook.message:
+        name: TopOrderBookEvent
+        title: Top OrderBook (Response)
+        summary: Server responds with the top bids and asks for the pair.
+        payload:
+          $ref: '#/components/schemas/TopOrderBookPayload'
+
+  topOrderBookBroadcast:
+    address: topOrderBookBroadcast
     messages:
-      - $ref: '#/channels/createOrder/messages/orderCreated.message'
+      topOrderBookBroadcast.message:
+        name: TopOrderBookBroadcast
+        title: Top OrderBook (Broadcast)
+        summary: >
+          Server broadcasts order book updates every 8 seconds for subscribed pairs.
+        payload:
+          $ref: '#/components/schemas/TopOrderBookPayload'
+
+operations:
   createOrder:
     action: send
     channel:
       $ref: '#/channels/createOrder'
     messages:
       - $ref: '#/channels/createOrder/messages/createOrder.message'
-  orderCancelled:
+  orderCreated:
     action: receive
     channel:
-      $ref: '#/channels/cancelOrder'
+      $ref: '#/channels/createOrder'
     messages:
-      - $ref: '#/channels/cancelOrder/messages/orderCancelled.message'
+      - $ref: '#/channels/createOrder/messages/orderCreated.message'
+
   cancelOrder:
     action: send
     channel:
       $ref: '#/channels/cancelOrder'
     messages:
       - $ref: '#/channels/cancelOrder/messages/cancelOrder.message'
+  orderCancelled:
+    action: receive
+    channel:
+      $ref: '#/channels/cancelOrder'
+    messages:
+      - $ref: '#/channels/cancelOrder/messages/orderCancelled.message'
+
   tradeExecuted:
     action: receive
     channel:
       $ref: '#/channels/tradeExecuted'
     messages:
       - $ref: '#/channels/tradeExecuted/messages/tradeExecuted.message'
-  topOrderBook:
-    action: receive
-    channel:
-      $ref: '#/channels/getTopOrderBook'
-    messages:
-      - $ref: '#/channels/getTopOrderBook/messages/topOrderBook.message'
+
   getTopOrderBook:
     action: send
     channel:
       $ref: '#/channels/getTopOrderBook'
     messages:
       - $ref: '#/channels/getTopOrderBook/messages/getTopOrderBook.message'
+  topOrderBook:
+    action: receive
+    channel:
+      $ref: '#/channels/getTopOrderBook'
+    messages:
+      - $ref: '#/channels/getTopOrderBook/messages/topOrderBook.message'
+
+  topOrderBookBroadcast:
+    action: receive
+    channel:
+      $ref: '#/channels/topOrderBookBroadcast'
+    messages:
+      - $ref: '#/channels/topOrderBookBroadcast/messages/topOrderBookBroadcast.message'
+
 components:
   schemas:
+    OrderType:
+      type: string
+      enum:
+        - LIMIT
+        - MARKET
+      example: LIMIT
+    Side:
+      type: string
+      enum:
+        - BUY
+        - SELL
+      example: BUY
     CreateOrderPayload:
-      type: object
-      properties:
-        pair:
-          type: string
-          example: BTC-USD
-        side:
-          type: string
-          enum:
-            - buy
-            - sell
-          example: buy
-        price:
-          type: number
-          example: 20000
-        quantity:
-          type: number
-          example: 1.5
-      required:
-        - pair
-        - side
-        - price
-        - quantity
+      oneOf:
+        - type: object
+          properties:
+            orderType:
+              $ref: '#/components/schemas/OrderType'
+            pair:
+              type: string
+              example: BTC-USD
+            side:
+              $ref: '#/components/schemas/Side'
+            price:
+              type: number
+              example: 20000
+            quantity:
+              type: number
+              example: 1.5
+          required:
+            - orderType
+            - pair
+            - side
+            - price
+            - quantity
+          description: 'LIMIT order requires price and quantity.'
+        - type: object
+          properties:
+            orderType:
+              $ref: '#/components/schemas/OrderType'
+            pair:
+              type: string
+              example: BTC-USD
+            side:
+              $ref: '#/components/schemas/Side'
+            quantity:
+              type: number
+              example: 1.5
+          required:
+            - orderType
+            - pair
+            - side
+            - quantity
+          description: 'MARKET order only requires quantity, price should not be provided.'
+
     OrderCreatedPayload:
       type: object
       properties:
@@ -147,10 +205,25 @@ components:
           example: abc123
         pair:
           type: string
-          example: BTC-USD
+          enum:
+            - ETH_USD
+            - BTC_USD
+            - XRP_USD
+            - LTC_USD
+            - BNB_USD
+          example: BTC_USD
         side:
           type: string
-          example: buy
+          enum:
+            - BUY
+            - SELL
+          example: BUY
+        orderType:
+          type: string
+          enum:
+            - LIMIT
+            - MARKET
+          example: LIMIT
         price:
           type: number
           example: 20000
@@ -167,6 +240,7 @@ components:
         - price
         - quantity
         - status
+
     CancelOrderPayload:
       type: object
       properties:
@@ -175,6 +249,7 @@ components:
           example: abc123
       required:
         - orderId
+
     OrderCancelledPayload:
       type: object
       properties:
@@ -187,6 +262,7 @@ components:
       required:
         - orderId
         - status
+
     TradeExecutedPayload:
       type: object
       properties:
@@ -195,7 +271,13 @@ components:
           example: trade-xyz789
         pair:
           type: string
-          example: BTC-USD
+          enum:
+            - ETH_USD
+            - BTC_USD
+            - XRP_USD
+            - LTC_USD
+            - BNB_USD
+          example: BTC_USD
         buyOrderId:
           type: string
           example: buy123
@@ -220,42 +302,102 @@ components:
         - quantity
         - price
         - timestamp
+
     GetTopOrderBookPayload:
       type: object
       properties:
         pair:
           type: string
-          example: BTC-USD
+          enum:
+            - ETH_USD
+            - BTC_USD
+            - XRP_USD
+            - LTC_USD
+            - BNB_USD
+          example: BTC_USD
         limit:
           type: number
           example: 5
       required:
         - pair
+
     TopOrderBookPayload:
       type: object
       properties:
-        pair:
+        event:
           type: string
-          example: BTC-USD
-        bids:
-          type: array
-          items:
+          example: topOrderBook
+        success:
+          type: boolean
+          example: true
+        data:
+          type: object
+          additionalProperties:
             type: object
             properties:
-              price:
-                type: number
-              quantity:
-                type: number
+              bids:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    orderId:
+                      type: string
+                    pair:
+                      type: string
+                      enum:
+                        - ETH_USD
+                        - BTC_USD
+                        - XRP_USD
+                        - LTC_USD
+                        - BNB_USD
+                    price:
+                      type: number
+                    quantity:
+                      type: number
+                    side:
+                      type: string
+                      enum:
+                        - BUY
+                        - SELL
+                    orderType:
+                      type: string
+                      enum:
+                        - LIMIT
+                        - MARKET
+                    status:
+                      type: string
               asks:
                 type: array
                 items:
                   type: object
                   properties:
+                    orderId:
+                      type: string
+                    pair:
+                      type: string
+                      enum:
+                        - ETH_USD
+                        - BTC_USD
+                        - XRP_USD
+                        - LTC_USD
+                        - BNB_USD
                     price:
                       type: number
                     quantity:
                       type: number
+                    side:
+                      type: string
+                      enum:
+                        - BUY
+                        - SELL
+                    orderType:
+                      type: string
+                      enum:
+                        - LIMIT
+                        - MARKET
+                    status:
+                      type: string
       required:
-        - pair
-        - bids
-        - asks
+        - event
+        - success
+        - data

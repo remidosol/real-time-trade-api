@@ -4,6 +4,7 @@ import express from 'express';
 import helmet from 'helmet';
 import http from 'http';
 import path from 'path';
+import env from './config/env.js';
 import { Server as SocketIOServer } from 'socket.io';
 import { fileURLToPath } from 'url';
 import xss from 'xss-clean';
@@ -16,7 +17,21 @@ import { TradeSocketController } from './modules/trade/controllers/TradeSocketCo
 
 const app = express();
 
-app.use(helmet());
+app.use(
+  helmet(
+    env.NODE_ENV === 'dev'
+      ? {
+          contentSecurityPolicy: {
+            directives: {
+              defaultSrc: ["'self'"],
+              scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'"],
+              styleSrc: ["'self'", "'unsafe-inline'"],
+            },
+          },
+        }
+      : undefined,
+  ),
+);
 app.use(xss());
 app.use(cors());
 app.options('*', cors());
@@ -49,10 +64,17 @@ app.get('/', (_req, res) => {
   res.send('Hello from Real-Time Trading API!');
 });
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+if (env.NODE_ENV === 'dev') {
+  const __filename = fileURLToPath(import.meta.url);
+  const __dirname = path.dirname(__filename);
 
-app.use('/docs', express.static(path.join(__dirname, '../docs')));
+  app.use(
+    '/docs',
+    express.static(path.resolve(__dirname, '../docs'), {
+      extensions: ['html'],
+    }),
+  );
+}
 
 app.use(errorConverter);
 app.use(errorHandler);

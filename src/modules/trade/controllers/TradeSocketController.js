@@ -7,9 +7,11 @@ import {
   OutgoingEventNames,
 } from '../../events/index.js';
 import logger from '../../../core/logger/Logger.js';
-import tradeService from '../services/TradeService.js';
+import { tradeService } from '../services/TradeService.js';
 import { socketDtoMiddleware } from '../../../core/middlewares/validateSocket.js';
 import { EmitResponse } from '../../../core/responses/EmitResponse.js';
+
+// let tradeService;
 
 export class TradeSocketController {
   #io;
@@ -27,6 +29,11 @@ export class TradeSocketController {
     this.#nameSpace = this.#io.of('/trade');
 
     this.#nameSpace.use(socketDtoMiddleware(EventSchemas));
+
+    // this.getTradeService().then((_tradeService) => {
+    //   // console.log(_tradeService);
+    //   this.#tradeService = _tradeService;
+    // });
 
     this.#nameSpace.on('connection', (socket) => {
       logger.debug(`Client (${socket.id}) connected.`);
@@ -46,6 +53,17 @@ export class TradeSocketController {
       });
     });
   }
+
+  /**
+   * Lazy-load TradeService to prevent circular dependency
+   */
+  // async getTradeService() {
+  //   if (!tradeService) {
+  //     tradeService = (await import('../services/TradeService.js')).tradeService;
+  //   }
+
+  //   return tradeService;
+  // }
 
   /**
    * To handle `MATCH_TOP_ORDERS` event
@@ -97,10 +115,11 @@ export class TradeSocketController {
             data: trade,
           }),
         );
-    } catch (err) {
+    } catch (error) {
       this.handleError(socket, {
-        ...err,
-        message: 'matchTopOrders error',
+        ...error,
+        error,
+        message: error.message,
       });
     }
   }
@@ -128,10 +147,11 @@ export class TradeSocketController {
           data: { pair, trades },
         }),
       );
-    } catch (err) {
+    } catch (error) {
       this.handleError(socket, {
-        ...err,
-        message: 'getRecentTrades error',
+        ...error,
+        error,
+        message: error.message,
       });
     }
   }
@@ -143,11 +163,7 @@ export class TradeSocketController {
    * @param {object} error
    */
   handleError(socket, error) {
-    logger.error('[TradeSocketController] Error:', {
-      message: error.message,
-      error,
-      context: '[TradeSocketController]',
-    });
+    logger.error({ ...error, context: '[TradeSocketController]' });
     return socket.emit(
       ...EmitResponse.Error({
         eventEmit: ErrorEventNames.TRADE_ERROR,

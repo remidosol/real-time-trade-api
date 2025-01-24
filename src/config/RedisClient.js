@@ -18,8 +18,13 @@ class RedisClient {
       autoResendUnfulfilledCommands: true,
     });
 
-    this.#client.on('error', (err) => {
-      logger.error('Redis Client Error: ', err);
+    this.#client.on('error', (error) => {
+      logger.error({
+        ...error,
+        context: '[RedisClient]',
+        message: 'Redis Client Error: ',
+        error,
+      });
     });
 
     this.#client.on('connect', () => {

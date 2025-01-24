@@ -1,6 +1,15 @@
 # Base image of development
 FROM node:22.13-alpine AS dev
 
+# Install chromium for AsyncAPI docs generation
+# RUN apk add --no-cache \
+#     chromium \
+#     nss \
+#     freetype \
+#     harfbuzz \
+#     ca-certificates \
+#     ttf-freefont
+
 # Create app directory
 WORKDIR /app
 

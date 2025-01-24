@@ -10,6 +10,8 @@ import logger from '../../../core/logger/Logger.js';
 import { orderService } from '../services/OrderService.js';
 import { socketDtoMiddleware } from '../../../core/middlewares/validateSocket.js';
 import { EmitResponse } from '../../../core/responses/EmitResponse.js';
+import { OrderType } from '../orderConstants.js';
+import { TradeStatus } from '../../trade/tradeConstants.js';
 
 export class OrderSocketController {
   #io;
@@ -57,7 +59,6 @@ export class OrderSocketController {
    * @param {Object} data
    */
   async handleCreateOrder(socket, data) {
-    console.log(data);
     if (!isValidationSuccess(IncomingEventNames.CREATE_ORDER, data)) {
       return;
     }
@@ -65,7 +66,7 @@ export class OrderSocketController {
     try {
       const newOrder = await this.#orderService.createOrder(data);
 
-      // Acknowledgment creation to the requesting client
+      // Notify client
       socket.emit(
         ...EmitResponse.Success({
           eventEmit: OutgoingEventNames.ORDER_CREATED,
@@ -75,7 +76,24 @@ export class OrderSocketController {
         }),
       );
 
-      // Broadcast an update to all clients subscribed to this pair
+      // If it's a market order and it's filled immediately, don't broadcast
+      if (
+        newOrder.orderType === OrderType.MARKET &&
+        newOrder.status === TradeStatus.FILLED
+      ) {
+        socket.emit(
+          ...EmitResponse.Success({
+            eventEmit: OutgoingEventNames.ORDER_FILLED,
+            payloadEventKey: OutgoingEventNames.ORDER_FILLED,
+            message: `Market order was executed immediately.`,
+            data: newOrder,
+          }),
+        );
+
+        return;
+      }
+
+      // Broadcast LIMIT order to order book subscribers
       this.#io
         .of('/subscription')
         .to(newOrder.pair)
@@ -90,7 +108,8 @@ export class OrderSocketController {
     } catch (error) {
       this.handleError(socket, {
         ...error,
-        message: 'createOrder error',
+        error,
+        message: error.message,
       });
     }
   }
@@ -145,7 +164,8 @@ export class OrderSocketController {
     } catch (error) {
       this.handleError(socket, {
         ...error,
-        message: 'cancelOrder error',
+        error,
+        message: error.message,
       });
     }
   }
@@ -200,7 +220,8 @@ export class OrderSocketController {
     } catch (error) {
       this.handleError(socket, {
         ...error,
-        message: 'fillOrder error',
+        error,
+        message: error.message,
       });
     }
   }
@@ -212,11 +233,7 @@ export class OrderSocketController {
    * @param {object} error
    */
   handleError(socket, error) {
-    logger.error('An error occurred', {
-      message: error.message,
-      error,
-      context: '[OrderSocketController]',
-    });
+    logger.error({ ...error, context: '[OrderSocketController]' });
     return socket.emit(
       ...EmitResponse.Error({
         eventEmit: ErrorEventNames.GATEWAY_ERROR,

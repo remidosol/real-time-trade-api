@@ -1,0 +1,7 @@
+{
+  "watch": ["src", "*.js", "*.json", "*.yaml"],
+  "ignore": ["node_modules", "docs", "tests", "*.test.js"],
+  "ext": "js,json,yaml",
+  "exec": "node --experimental-modules src/index.js",
+  "delay": "1000"
+}
