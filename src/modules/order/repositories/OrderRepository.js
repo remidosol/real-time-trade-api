@@ -1,15 +1,17 @@
 import redisClient from '../../../config/RedisClient.js';
 import { SupportedPairs } from '../../../core/globalConstants.js';
 import logger from '../../../core/logger/Logger.js';
-import { TradeStatus } from '../../trade/index.js';
+import { TradeStatus, tradeRepository } from '../../trade/index.js';
 import { Order } from '../models/index.js';
-import { Sides } from '../orderConstants.js';
+import { OrderType, Sides } from '../orderConstants.js';
 
 class OrderRepository {
   #redis;
+  #tradeRepository;
 
   constructor() {
     this.#redis = redisClient.getClient();
+    this.#tradeRepository = tradeRepository;
   }
 
   /**
@@ -25,15 +27,19 @@ class OrderRepository {
     try {
       await this.#redis.hset(orderKey, {
         orderId: order.orderId,
+        orderType: order.orderType,
         pair: order.pair,
         price: order.price,
         side: order.side,
         quantity: order.quantity,
         status: order.status,
       });
-    } catch (err) {
-      logger.error(err);
-      throw err;
+    } catch (error) {
+      logger.error({
+        ...error,
+        context: '[OrderRepository]',
+      });
+      throw error;
     }
   }
 
@@ -49,9 +55,12 @@ class OrderRepository {
 
     try {
       await this.#redis.hdel(orderKey);
-    } catch (err) {
-      logger.error(err);
-      throw err;
+    } catch (error) {
+      logger.error({
+        ...error,
+        context: '[OrderRepository]',
+      });
+      throw error;
     }
   }
 
@@ -73,6 +82,7 @@ class OrderRepository {
 
       const order = new Order({
         orderId: data.orderId,
+        orderType: data.orderType,
         pair: data.pair,
         price: parseFloat(data.price),
         quantity: parseFloat(data.quantity),
@@ -81,9 +91,12 @@ class OrderRepository {
       });
 
       return order;
-    } catch (err) {
-      logger.error(err);
-      throw err;
+    } catch (error) {
+      logger.error({
+        ...error,
+        context: '[OrderRepository]',
+      });
+      throw error;
     }
   }
 
@@ -99,16 +112,60 @@ class OrderRepository {
       await this.saveOrder(order);
 
       const pair = order.pair;
-      const score = order.price;
+
+      let priceToUse = order.price; // Use provided price for LIMIT orders
+
+      if (order.orderType === OrderType.MARKET) {
+        if (order.side === Sides.BUY) {
+          // Get lowest ask price
+          const topAsk = await this.getTopAsks(pair, 1);
+
+          if (topAsk.length > 0) {
+            priceToUse = topAsk[0].price;
+          } else {
+            // No asks → Use last trade price
+            const lastTrade = await this.#tradeRepository.getRecentTrades(
+              pair,
+              1,
+            );
+
+            priceToUse = lastTrade.length > 0 ? lastTrade[0].price : 99999999;
+          }
+        } else if (order.side === Sides.SELL) {
+          const topBid = await this.getTopBids(pair, 1);
+
+          if (topBid.length > 0) {
+            priceToUse = topBid[0].price;
+          } else {
+            // No bids → Use last trade price
+            const lastTrade = await this.#tradeRepository.getRecentTrades(
+              pair,
+              1,
+            );
+            priceToUse = lastTrade.length > 0 ? lastTrade[0].price : 0.0001;
+          }
+        }
+      }
 
       if (order.side === Sides.BUY) {
-        await this.#redis.zadd(`orderbook:${pair}:bids`, -score, order.orderId);
+        await this.#redis.zadd(
+          `orderbook:${pair}:bids`,
+          -priceToUse,
+          order.orderId,
+        );
       } else if (order.side === Sides.SELL) {
-        await this.#redis.zadd(`orderbook:${pair}:asks`, score, order.orderId);
+        await this.#redis.zadd(
+          `orderbook:${pair}:asks`,
+          priceToUse,
+          order.orderId,
+        );
       }
-    } catch (err) {
-      logger.error(err);
-      throw err;
+    } catch (error) {
+      logger.error({
+        ...error,
+        context: '[OrderRepository]',
+      });
+      throw error;
     }
   }
 
@@ -130,9 +187,12 @@ class OrderRepository {
       }
 
       //   await this.deleteOrder(order);
-    } catch (err) {
-      logger.error(err);
-      throw err;
+    } catch (error) {
+      logger.error({
+        ...error,
+        context: '[OrderRepository]',
+      });
+      throw error;
     }
   }
 
@@ -166,9 +226,12 @@ class OrderRepository {
       await this.saveOrder(existingOrder);
 
       return existingOrder;
-    } catch (err) {
-      logger.error(err);
-      throw err;
+    } catch (error) {
+      logger.error({
+        ...error,
+        context: '[OrderRepository]',
+      });
+      throw error;
     }
   }
 
@@ -203,9 +266,12 @@ class OrderRepository {
       }
 
       await multi.exec();
-    } catch (err) {
-      logger.error(err);
-      throw err;
+    } catch (error) {
+      logger.error({
+        ...error,
+        context: '[OrderRepository]',
+      });
+      throw error;
     }
   }
 
@@ -235,9 +301,12 @@ class OrderRepository {
       await this.saveOrder(order);
 
       return order;
-    } catch (err) {
-      logger.error(err);
-      throw err;
+    } catch (error) {
+      logger.error({
+        ...error,
+        context: '[OrderRepository]',
+      });
+      throw error;
     }
   }
 

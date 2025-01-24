@@ -3,13 +3,35 @@ import { orderRepository } from '../repositories/OrderRepository.js';
 import { Order } from '../models/index.js';
 import { SupportedPairs } from '../../../core/globalConstants.js';
 import { TradeStatus } from '../../trade/index.js';
+// import { tradeService } from '../../trade/index.js';
 import logger from '../../../core/logger/Logger.js';
+import { OrderType } from '../orderConstants.js';
+
+// To prevent circular dependency, we'll use a module-level variable
+let tradeService;
 
 class OrderService {
   #orderRepository;
+  #tradeService;
 
   constructor() {
     this.#orderRepository = orderRepository;
+    // this.#tradeService = tradeService;
+    this.getTradeService().then((tradeService) => {
+      this.#tradeService = tradeService;
+    });
+  }
+
+  /**
+   * Lazy-load TradeService to prevent circular dependency
+   */
+  async getTradeService() {
+    if (!tradeService) {
+      tradeService = (await import('../../trade/services/TradeService.js'))
+        .tradeService;
+    }
+
+    return tradeService;
   }
 
   /**
@@ -19,27 +41,45 @@ class OrderService {
    * @returns {Promise<Order>} the newly created Order object
    */
   async createOrder(data) {
+    const { pair, price, quantity, side, orderType } = data;
+
     try {
-      // 1) Generate an order ID
       const orderId = uuidv4();
 
-      // 2) Instantiate the domain entity
       const order = new Order({
         orderId,
-        pair: data.pair,
-        price: data.price,
-        quantity: data.quantity,
-        side: data.side,
+        pair: pair,
+        price: price,
+        quantity: quantity,
+        side: side,
         status: TradeStatus.OPEN,
+        orderType: orderType,
       });
 
-      // 3) Save to repository
-      await this.#orderRepository.addOrder(order);
+      // If it's a MARKET order, attempt immediate execution
+      if (data.orderType === OrderType.MARKET) {
+        const matchedTrade = await this.#tradeService.matchTopOrders(data.pair);
+
+        if (matchedTrade) {
+          order.status = TradeStatus.FILLED;
+        }
+      }
+
+      // Store LIMIT orders in order book
+      if (
+        data.orderType === OrderType.LIMIT ||
+        order.status !== TradeStatus.FILLED
+      ) {
+        await this.#orderRepository.addOrder(order);
+      }
 
       return order;
-    } catch (err) {
-      logger.error(err);
-      throw err;
+    } catch (error) {
+      logger.error({
+        ...error,
+        context: '[OrderService]',
+      });
+      throw error;
     }
   }
 
@@ -70,9 +110,12 @@ class OrderService {
       );
 
       return canceledOrder;
-    } catch (err) {
-      logger.error(err);
-      throw err;
+    } catch (error) {
+      logger.error({
+        ...error,
+        context: '[OrderService]',
+      });
+      throw error;
     }
   }
 
@@ -85,15 +128,23 @@ class OrderService {
    */
   async fillOrder(orderId) {
     try {
-      const filledOrder = await this.#orderRepository.setOrderStatus(
-        orderId,
-        TradeStatus.FILLED,
-      );
+      const order = await this.#orderRepository.getOrder(orderId);
 
-      return filledOrder;
-    } catch (err) {
-      logger.error(err);
-      throw err;
+      if (!order || order.status !== TradeStatus.OPEN) {
+        return null;
+      }
+
+      order.status = TradeStatus.FILLED;
+
+      await this.#orderRepository.setOrderStatus(orderId, TradeStatus.FILLED);
+
+      return order;
+    } catch (error) {
+      logger.error({
+        ...error,
+        context: '[OrderService]',
+      });
+      throw error;
     }
   }
 
@@ -144,4 +195,6 @@ class OrderService {
   }
 }
 
-export const orderService = new OrderService();
+const orderService = new OrderService();
+
+export { orderService };

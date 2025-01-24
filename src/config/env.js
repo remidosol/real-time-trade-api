@@ -14,7 +14,12 @@ const envVarsSchema = z.object({
 const { success, data, error } = envVarsSchema.safeParse(process.env);
 
 if (!success && error) {
-  logger.error('Config validation error', { error: error.issues });
+  logger.error({
+    ...error,
+    context: '[EnvConfig]',
+    message: 'Config validation error',
+    error: error.issues,
+  });
 }
 
 export default {

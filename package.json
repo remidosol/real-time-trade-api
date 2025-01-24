@@ -10,8 +10,7 @@
   "scripts": {
     "build": "webpack --config webpack.config.js",
     "start": "node src/index.js",
-    "start:bundled": "node dist/bundle.cjs",
-    "start:dev": "nodemon src/index.js --watch",
+    "start:dev": "nodemon",
     "docs:generate": "asyncapi generate fromTemplate ./asyncapi.yaml @asyncapi/html-template -o ./docs --use-new-generator --force-write",
     "test": "jest --config jest.config.js",
     "lint": "eslint .",
@@ -53,7 +52,8 @@
     "zod": "^3.24.1"
   },
   "devDependencies": {
-    "@asyncapi/cli": "^2.16.0",
+    "@asyncapi/generator": "^2.6.0",
+    "@asyncapi/html-template": "^3.1.0",
     "@babel/core": "^7.26.0",
     "@babel/preset-env": "^7.26.0",
     "@eslint/js": "^9.18.0",

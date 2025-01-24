@@ -37,9 +37,12 @@ class TradeRepository {
       multi.zadd(`trades:${trade.pair}`, trade.timestamp, trade.tradeId);
 
       await multi.exec();
-    } catch (err) {
-      logger.error(err);
-      throw err;
+    } catch (error) {
+      logger.error({
+        ...error,
+        context: '[TradeRepository]',
+      });
+      throw error;
     }
   }
 
@@ -67,9 +70,12 @@ class TradeRepository {
         price: parseFloat(data.price),
         timestamp: parseInt(data.timestamp, 10),
       });
-    } catch (err) {
-      logger.error(err);
-      throw err;
+    } catch (error) {
+      logger.error({
+        ...error,
+        context: '[TradeRepository]',
+      });
+      throw error;
     }
   }
 

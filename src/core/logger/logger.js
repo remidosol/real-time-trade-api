@@ -24,15 +24,21 @@ class Logger {
           },
         }),
         format.timestamp({ format: 'YYYY-MM-DD HH:mm:ss' }),
-        format.printf(({ level, message, context, timestamp, error }) => {
-          const manipulateError =
-            error && typeof error === 'object'
-              ? JSON.stringify(error, null, 2)
-              : error && typeof error === 'string'
-                ? error
-                : ' ';
+        format.printf(({ level, message, context, timestamp }) => {
+          let manipulateMessage = message;
+          let manipulateError;
 
-          return `${timestamp} ${level}${context ? ' ' + context + ' ' : ' '}${message} ${manipulateError}`;
+          if (message instanceof Error) {
+            manipulateMessage =
+              message && message instanceof Error ? message.message : message;
+
+            manipulateError =
+              message && message instanceof Error
+                ? JSON.stringify(message, null, 2)
+                : ' ';
+          }
+
+          return `${timestamp} ${level}${context ? ' ' + context + ' ' : ' '}${manipulateMessage} ${manipulateError ?? ''}`;
         }),
       ),
     });
@@ -115,8 +121,9 @@ class Logger {
   #getLogData(level, message, data) {
     return {
       level,
-      message: message instanceof Error ? message.message : message,
-      error: message instanceof Error ? message : undefined,
+      message: typeof message === 'object' ? message.message : message,
+      error: typeof message === 'object' ? message.stack : undefined,
+      context: typeof message === 'object' ? message.context : undefined,
       ...data,
     };
   }

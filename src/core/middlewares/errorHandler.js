@@ -36,7 +36,11 @@ export const errorHandler = (err, req, res, next) => {
   };
 
   if (config.env === 'dev') {
-    logger.error(err);
+    logger.error({
+      ...err,
+      context: '[ErrorHandler]',
+      err,
+    });
   }
 
   res.status(statusCode).send(response);

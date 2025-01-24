@@ -1,127 +1,146 @@
-# 📖 Order Module
+# 🛒 Order Module
 
 ## Overview
 
-The **Order Module** manages real-time order handling in the trading system. It provides WebSocket-based APIs for **creating, canceling, and filling orders**, and efficiently maintains the order book using **Redis**.
+The **Order Module** is responsible for handling order creation, cancellation, and execution within the trading system. It supports **LIMIT** and **MARKET** orders and ensures efficient order matching using Redis Sorted Sets.
 
-This module ensures:
+## Features
 
-- Real-time order processing.
-- Efficient order book management with **Redis Sorted Sets**.
-- Event-driven communication through **Socket.IO**.
-- Strict **DTO-based validation** for incoming requests.
+- **Order Types**: Supports both **LIMIT** and **MARKET** orders.
+- **Order Management**: Create, cancel, update, and execute orders.
+- **Order Book**: Uses Redis Sorted Sets for efficient price-based sorting.
+- **Partial Fills**: Ensures trades are partially filled if liquidity is insufficient.
+- **WebSocket Integration**: Emits real-time updates on order events.
 
-## 📂 Directory Structure
+## Order Types
+
+### 🔹 **LIMIT Order**
+
+- Placed at a **specific price**.
+- Stored in the order book until matched.
+- Sorted **descending for bids** (BUY) and **ascending for asks** (SELL).
+
+### 🔹 **MARKET Order**
+
+- Executed **immediately** at the best available price.
+- Matches with existing LIMIT orders.
+- Supports **partial fills** if liquidity is insufficient.
+
+## Key Components
+
+### 📂 **Directory Structure**
 
 ```
-order
-├── controllers
-│   └── OrderSocketController.js  # Handles WebSocket events
-├── dtos
-│   ├── cancelOrderDto.js         # DTO for canceling an order
-│   ├── createOrderDto.js         # DTO for creating an order
-│   └── index.js                  # DTO export handler
-├── models
-│   ├── Order.js                  # Order entity definition
-│   └── index.js                   
-├── repositories
-│   └── OrderRepository.js         # Order persistence logic (Redis)
-├── services
-│   └── OrderService.js            # Business logic for order management
-├── orderConstants.js              # Enum-like constants (BUY, SELL)
-├── index.js                       # Main module export
-└── README.md                      # Documentation
+order/
+├── controllers/
+│   └── OrderSocketController.js  # WebSocket controller for order events
+├── dtos/
+│   ├── cancelOrderDto.js         # DTO for cancel order validation
+│   ├── createOrderDto.js         # DTO for create order validation
+│   └── index.js
+├── models/
+│   ├── Order.js                  # Order model with attributes
+│   └── index.js
+├── repositories/
+│   └── OrderRepository.js        # Redis-based order persistence
+├── services/
+│   └── OrderService.js           # Order processing & matching logic
+├── orderConstants.js             # Constants for order types & trade statuses
+├── README.md                     # Documentation for Order Module
+├── index.js                      # Module entry point
 ```
 
-## 🚀 Order Flow
+### 📌 **Order Model** (`Order.js`)
 
-1. **Client** sends an event (`createOrder`, `cancelOrder`, `fillOrder`) via **Socket.IO**.
-2. **Controller (`OrderSocketController.js`)** validates the request and routes it to the service.
-3. **Service (`OrderService.js`)** processes the request, generates an order ID (if needed), and interacts with the repository.
-4. **Repository (`OrderRepository.js`)** stores order data in **Redis** (using Sorted Sets for order book management).
-5. **Order updates are broadcasted** to subscribed clients for real-time trading updates.
-
-## 📌 Key Components
-
-### **1️⃣ Order Constants**
-
-Defined in [`orderConstants.js`](./orderConstants.js):
-
-```js
-export const Sides = {
-  BUY: 'BUY',
-  SELL: 'SELL',
-};
+```javascript
+export class Order {
+  constructor({ orderId, pair, price, quantity, side, status, orderType }) {
+    this.orderId = orderId;
+    this.pair = pair;
+    this.price = price;
+    this.quantity = quantity;
+    this.side = side;
+    this.status = status; // OPEN, FILLED, CANCELLED
+    this.orderType = orderType; // LIMIT, MARKET
+  }
+}
 ```
 
-### **2️⃣ Order Repository (`OrderRepository.js`)**
+### 🔧 **Order Service** (`OrderService.js`)
 
-Handles Redis-based storage of orders:
+Handles **order creation, matching, execution, and cancellation**.
 
-- **`saveOrder(order)`** → Stores an order in Redis Hash.
-- **`deleteOrder(order)`** → Removes order from Redis.
-- **`getOrder(orderId)`** → Fetches order details.
-- **`addOrder(order)`** → Adds order to order book (Sorted Sets).
-- **`removeOrder(order)`** → Removes order from order book.
-- **`getTopBids(pair, limit)`** → Retrieves highest buy orders.
-- **`getTopAsks(pair, limit)`** → Retrieves lowest sell orders.
+#### ✅ **Order Processing Logic**
 
-### **3️⃣ Order Service (`OrderService.js`)**
+- **LIMIT Orders** → Stored in Redis Sorted Sets until matched.
+- **MARKET Orders** → Matched immediately against the best available limit orders.
+- **Partial Fills** → If liquidity is insufficient, only part of the order executes.
 
-Implements order-related business logic:
+### 📡 **WebSocket Events** (`OrderSocketController.js`)
 
-- **`createOrder(data)`** → Creates a new order.
-- **`cancelOrder(orderId)`** → Cancels an order.
-- **`fillOrder(orderId)`** → Marks order as filled.
-- **`updateOrder(orderId, data)`** → Updates order fields.
+| Event Name       | Type      | Description |
+|-----------------|----------|-------------|
+| `createOrder`   | Client → Server | Creates a new order. |
+| `orderCreated`  | Server → Client | Broadcasts when an order is created. |
+| `cancelOrder`   | Client → Server | Cancels an existing order. |
+| `orderCancelled`| Server → Client | Broadcasts when an order is canceled. |
+| `fillOrder`     | Client → Server | Executes an order manually. |
+| `orderFilled`   | Server → Client | Broadcasts when an order is filled. |
+| `orderBookUpdate` | Server → Client | Notifies subscribers when order book changes. |
 
-### **4️⃣ Order WebSocket Controller (`OrderSocketController.js`)**
+### 📜 **Example WebSocket Payloads**
 
-Manages WebSocket event handling using **Socket.IO**:
+#### ✅ **Creating a LIMIT Order**
 
-- Listens for events:
-  - `createOrder`
-  - `cancelOrder`
-  - `fillOrder`
-- Emits updates to clients:
-  - `orderCreated`
-  - `orderCancelled`
-  - `orderFilled`
-- Validates incoming data with DTOs.
-
-### **5️⃣ Data Validation (DTOs)**
-
-Defined using **Zod** in `dtos/`:
-
-```js
-export const CreateOrderRequestDto = z.object({
-  pair: z.enum(['BTC-USD', 'ETH-USD']),
-  side: z.enum(['BUY', 'SELL']),
-  price: z.number().positive(),
-  quantity: z.number().positive(),
-});
+```json
+{
+  "pair": "ETH_USD",
+  "price": 2500,
+  "quantity": 2,
+  "side": "BUY",
+  "orderType": "LIMIT"
+}
 ```
 
-## 📡 WebSocket Events
+#### ✅ **Creating a MARKET Order**
 
-### **📤 Client → Server Events**
+```json
+{
+  "pair": "ETH_USD",
+  "quantity": 3,
+  "side": "SELL",
+  "orderType": "MARKET"
+}
+```
 
-| Event Name       | Payload Schema            | Description                 |
-|-----------------|--------------------------|-----------------------------|
-| `createOrder`   | `{ pair, side, price, quantity }` | Creates a new order.      |
-| `cancelOrder`   | `{ orderId }`             | Cancels an existing order.  |
-| `fillOrder`     | `{ orderId }`             | Marks order as filled.      |
+#### ✅ **Server Response: Order Created**
 
-### **📥 Server → Client Events**
+```json
+{
+  "event": "orderCreated",
+  "success": true,
+  "data": {
+    "orderId": "12345-xyz",
+    "pair": "ETH_USD",
+    "price": 2500,
+    "quantity": 2,
+    "side": "BUY",
+    "status": "OPEN",
+    "orderType": "LIMIT"
+  }
+}
+```
 
-| Event Name        | Payload Schema             | Description                     |
-|------------------|--------------------------|---------------------------------|
-| `orderCreated`  | `{ orderId, pair, ... }`  | A new order has been created.  |
-| `orderCancelled`| `{ orderId, status }`     | Order was successfully canceled. |
-| `orderFilled`   | `{ orderId, status }`     | Order was successfully filled.  |
+## Summary
 
-## 🎯 Future Enhancements
+- **High-performance order management** with Redis Sorted Sets.
+- **Efficient real-time updates** via WebSocket events.
+- **Flexible order types** supporting both LIMIT and MARKET orders.
+- **Scalable architecture** optimized for trading platforms.
 
-- **Order Matching Engine** for auto-executing trades.
-- **Database Persistence** for long-term order storage.
-- **User Authentication** for order authorization.
+**📌 Related Modules:**
+
+- **[Trade Module](../trade/README.md)** → Handles trade execution.
+- **[Subscription Module](../subscription/README.md)** → Real-time order book updates.
+
+🚀 **This module ensures seamless order execution and high-frequency trading support!**

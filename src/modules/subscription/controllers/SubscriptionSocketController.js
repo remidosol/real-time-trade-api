@@ -49,17 +49,7 @@ export class SubscriptionSocketController {
       socket.on('disconnect', () => {
         logger.debug(`Client (${socket.id}) disconnected.`);
 
-        const activeRooms = this.#nameSpace.adapter.rooms.size;
-
-        if (activeRooms === 0 && this.#broadcastInterval) {
-          clearInterval(this.#broadcastInterval);
-
-          this.#broadcastInterval = null;
-
-          logger.info(
-            `[SubscriptionSocketController] Stopped order book broadcasting (last user left)`,
-          );
-        }
+        this.#cleanupBroadcasts();
       });
     });
   }
@@ -198,7 +188,8 @@ export class SubscriptionSocketController {
     } catch (error) {
       this.handleError(socket, {
         ...error,
-        message: 'getTopOrderBook error',
+        error,
+        message: error.message,
       });
     }
   }
@@ -237,7 +228,8 @@ export class SubscriptionSocketController {
     } catch (error) {
       this.handleError(await this.#nameSpace.in(pair).fetchSockets(), {
         ...error,
-        message: 'getTopOrderBook error',
+        error,
+        message: error.message,
       });
     }
   }
@@ -249,11 +241,7 @@ export class SubscriptionSocketController {
    * @param {object} error
    */
   handleError(socket, error) {
-    logger.error('An error occurred', {
-      message: error.message,
-      error,
-      context: '[SubscriptionSocketController]',
-    });
+    logger.error({ ...error, context: '[SubscriptionSocketController]' });
     if (Array.isArray(socket)) {
       return socket.forEach((s) =>
         s.emit(
@@ -266,6 +254,7 @@ export class SubscriptionSocketController {
         ),
       );
     }
+
     return socket.emit(
       ...EmitResponse.Error({
         eventEmit: ErrorEventNames.GATEWAY_ERROR,
@@ -304,5 +293,20 @@ export class SubscriptionSocketController {
     const subscribedPairs = await this.#getSubscribedPairs(socket);
 
     return subscribedPairs.has(pair);
+  }
+
+  /**
+   * Cleanup logic: Stop order book updates when no active subscriptions exist.
+   */
+  #cleanupBroadcasts() {
+    const activeRooms = this.#nameSpace.adapter.rooms.size;
+
+    if (activeRooms === 0 && this.#broadcastInterval) {
+      clearInterval(this.#broadcastInterval);
+      this.#broadcastInterval = null;
+      logger.info(
+        `[SubscriptionSocketController] Stopped order book broadcasting (no active rooms).`,
+      );
+    }
   }
 }
