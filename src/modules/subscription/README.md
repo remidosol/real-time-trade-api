@@ -1,133 +1,109 @@
-# 📖 Subscription Module
+# 📡 Subscription Module
 
-## Overview
+## 📖 Overview
 
-The **Subscription Module** handles WebSocket-based real-time subscriptions to order book updates. It allows clients to:
+The **Subscription Module** manages real-time WebSocket subscriptions for trading pairs, enabling clients to receive live order book updates and trade execution notifications. This module ensures efficient broadcasting of market data while optimizing server resources.
 
-- **Subscribe** to specific trading pairs.
-- **Unsubscribe** from trading pairs.
-- **Retrieve top bids/asks** for subscribed trading pairs.
+## 🚀 Features
 
-This module ensures efficient real-time updates using **Socket.IO namespaces** and **room-based subscriptions**.
-
-## 📂 Directory Structure
-
-```
-subscription
-├── controllers
-│   └── SubscriptionSocketController.js  # Handles WebSocket subscription events
-├── dtos
-│   ├── index.js                        # DTO export handler
-│   ├── subscriptionPairDto.js          # DTO for subscribing to pairs
-│   └── topOrderDto.js                   # DTO for retrieving top order book
-├── index.js                             # Module export
-└── README.md                            # Documentation
-```
+- **Subscribe to a trading pair**: Clients can join rooms based on trading pairs (e.g., `ETH_USD`).
+- **Unsubscribe from a trading pair**: Clients can leave rooms when they no longer need updates.
+- **Real-time order book updates**: The system automatically broadcasts order book updates at an 8-second interval for active trading pairs.
+- **Efficient broadcasting**: Interval-based updates only run when at least one client is subscribed.
+- **Automatic cleanup**: Stops broadcasting when no clients remain.
 
 ## 📌 Key Components
 
-### **1️⃣ Subscription DTOs (`dtos/`)**
+### **1️⃣ SubscriptionSocketController**
 
-Defines **schema-based validation** for incoming subscription-related events using **Zod**.
+Handles WebSocket connections for subscriptions.
 
-#### **🔹 SubscriptionPairRequestDto (`subscriptionPairDto.js`)**
+- **Handles subscription requests (`SUBSCRIBE_PAIR`)**
+- **Handles unsubscription requests (`UNSUBSCRIBE_PAIR`)**
+- **Handles direct client requests for top order book (`GET_TOP_ORDER_BOOK`)**
+- **Automatically broadcasts order book updates (`TOP_ORDER_BOOK`)**
 
-```js
-export const SubscriptionPairRequestDto = z.object({
-  pair: z.enum(Object.values(SupportedPairs), {
-    message: `pair property should be one of these values: ${Object.values(SupportedPairs)}`,
-  }),
-  limit: z
-    .number({ message: 'limit must be number' })
-    .positive('limit must be positive')
-    .optional(),
-});
-```
+### **2️⃣ DTOs (Data Transfer Objects)**
 
-#### **🔹 TopOrderRequestDto (`topOrderDto.js`)**
+Defines validation rules for incoming subscription requests.
 
-```js
-export const topOrderRequestDto = z.object({
-  limit: z
-    .number({ message: 'limit must be number' })
-    .positive('limit must be positive')
-    .optional(),
-});
-```
+- **`SubscriptionPairRequestDto`**: Validates trading pair subscriptions.
+- **`TopOrderRequestDto`**: Validates order book requests.
 
-### **2️⃣ Subscription WebSocket Controller (`SubscriptionSocketController.js`)**
+## 🔄 Workflow
 
-Manages WebSocket event handling using **Socket.IO namespaces and rooms**:
+1. **User subscribes to a trading pair** (e.g., `ETH_USD`).
+   - The client joins the room corresponding to the pair.
+   - If no broadcasting is active, a new interval-based update loop starts.
+2. **Order book updates are automatically broadcasted** every 8 seconds.
+   - Only active trading pairs with subscribers receive updates.
+3. **User unsubscribes** from a trading pair.
+   - The client leaves the corresponding room.
+   - If no active subscribers remain, the broadcasting loop stops.
+4. **Client can manually request order book data**.
+   - Uses `GET_TOP_ORDER_BOOK` to fetch the latest bids and asks.
 
-- Listens for events:
-  - `subscribePair` → Subscribes a client to a trading pair.
-  - `unsubscribePair` → Unsubscribes a client from a trading pair.
-  - `getTopOrderBook` → Retrieves the top N bids and asks.
-- Uses **Socket.IO rooms** to group subscribers by trading pair.
-- Emits updates to subscribed clients.
+## 🔥 WebSocket Events
 
-#### **🔹 Subscription Logic**
+### **Incoming Events (Client -> Server)**
 
-- Clients **join a room** corresponding to a trading pair when subscribing.
-- Clients **leave the room** when unsubscribing.
-- When an order book update occurs, only **clients in the relevant rooms** receive updates.
+| Event | Description |
+|-------|-------------|
+| `subscribePair` | Subscribes to a trading pair |
+| `unsubscribePair` | Unsubscribes from a trading pair |
+| `getTopOrderBook` | Requests the latest order book |
 
-#### **🔹 Subscription Event Handling**
+### **Outgoing Events (Server -> Client)**
 
-```js
-socket.on(IncomingEventNames.SUBSCRIBE_PAIR, (data) =>
-  this.handleSubscribePair(socket, data),
-);
+| Event | Description |
+|-------|-------------|
+| `subscribed` | Acknowledgment of a successful subscription |
+| `unsubscribed` | Acknowledgment of a successful unsubscription |
+| `topOrderBook` | Broadcasts order book updates |
 
-socket.on(IncomingEventNames.UNSUBSCRIBE_PAIR, async (data) =>
-  this.handleUnsubscribePair(socket, data),
-);
+## 🏗️ Example Payloads
 
-socket.on(IncomingEventNames.GET_TOP_ORDER_BOOK, async (data) =>
-  this.handleGetTopOrderBook(socket, data),
-);
-```
+### ✅ **Subscribe Response**
 
-#### **🔹 Subscription Room Management**
-
-```js
-async handleSubscribePair(socket, data) {
-  await socket.join(data.pair);
-  socket.emit(OutgoingEventNames.SUBSCRIBED, {
-    success: true,
-    message: `Subscribing to ${data.pair} pair is successful`
-  });
-}
-
-async handleUnsubscribePair(socket, data) {
-  await socket.leave(data.pair);
-  socket.emit(OutgoingEventNames.UNSUBSCRIBED, {
-    success: true,
-    message: `Unsubscribing to ${data.pair} pair is successful`
-  });
+```json
+{
+    "success": true,
+    "message": "Subscribing to ETH_USD pair is successful"
 }
 ```
 
-## 📡 WebSocket Events
+### ✅ **Unsubscribe Response**
 
-### **📤 Client → Server Events**
+```json
+{
+    "success": true,
+    "message": "Unsubscribing to ETH_USD pair is successful"
+}
+```
 
-| Event Name        | Payload Schema            | Description                              |
-|------------------|--------------------------|------------------------------------------|
-| `subscribePair`  | `{ pair }`                | Subscribe to order book updates         |
-| `unsubscribePair`| `{ pair }`                | Unsubscribe from order book updates     |
-| `getTopOrderBook` | `{ limit? }`             | Retrieve top N bids and asks            |
+### ✅ **Order Book Update**
 
-### **📥 Server → Client Events**
+```json
+{
+    "event": "topOrderBook",
+    "success": true,
+    "data": {
+        "ETH_USD": {
+            "bids": [
+                { "orderId": "76a7d120-e777-47e3-b5ef-4f6d36622885", "pair": "ETH_USD", "price": 15, "quantity": 0.5, "side": "BUY", "status": "OPEN" }
+            ],
+            "asks": [
+                { "orderId": "b49c5459-33a8-427a-9759-941f6217adee", "pair": "ETH_USD", "price": 15, "quantity": 0.5, "side": "SELL", "status": "OPEN" }
+            ]
+        }
+    }
+}
+```
 
-| Event Name         | Payload Schema                           | Description                              |
-|-------------------|--------------------------------------|------------------------------------------|
-| `subscribed`     | `{ success, message }` | Confirmation of successful subscription |
-| `unsubscribed`   | `{ success, message }` | Confirmation of successful unsubscription |
-| `topOrderBook`   | `{ event: "topOrderBook", success, data: { ETH_USD: { bids, asks } } }` | Response with top order book data       |
+## 🛠️ Additional Notes
 
-## 🎯 Future Enhancements
+- Order book updates run **only when active clients exist**.
+- The interval broadcasting **stops automatically** when all users disconnect.
+- Users can manually request the order book for instant updates.
 
-- **Implement persistence layer** for long-term subscription tracking.
-- **Enhance filtering options** for clients to customize data streams.
-- **Optimize Redis event propagation** for lower latency updates.
+📌 **For more details on WebSocket event validation, check out the [Events Module](../events/README.md).**
