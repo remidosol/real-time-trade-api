@@ -12,7 +12,6 @@
 - [Docker Setup](#docker-setup)
 - [Development & Testing](#development--testing)
 - [License](#license)
-- [Contribution](#contribution)
 - [Contact](#contact)
 
 ## Overview
@@ -99,6 +98,8 @@ real-time-trade-api
 
 The API uses **WebSocket (Socket.IO)** for event-driven communication. For a full list of **supported events and payload schemas**, refer to the **[AsyncAPI Documentation](./asyncapi.yaml)**.
 
+There also is a Postman collection but it doesn't provide an exportable output for WS/Socket.IO docs. Here is the [invite link](https://app.getpostman.com/join-team?invite_code=2ccb1dbcba3b9afb36dd78e5831c2169aff52f4c3f58ba24d4d0380cc930cab7) of workspace.
+
 ## Getting Started
 
 ### Install Dependencies
@@ -177,10 +178,6 @@ yarn test
 ## License
 
 This project is licensed under the **MIT License**.
-
-## Contribution
-
-Feel free to submit issues, feature requests, or contribute to the project.
 
 ## Contact
 
