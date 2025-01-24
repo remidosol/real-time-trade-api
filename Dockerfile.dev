@@ -1,0 +1,14 @@
+# Base image of development
+FROM node:22.13-alpine AS dev
+
+# Create app directory
+WORKDIR /app
+
+# Copy package files
+COPY package.json yarn.lock ./
+
+# Install dependencies
+RUN yarn --frozen-lockfile
+
+# Copy source code
+COPY . .

@@ -1,0 +1,261 @@
+asyncapi: 3.0.0
+info:
+  title: Real-Time Trading API
+  version: 1.0.0
+  x-linkedin: https://www.linkedin.com/in/ibrahim-aksut
+  description: >
+    This AsyncAPI specification describes our Socket.IO-based trading platform.
+    Clients can create orders, cancel orders, and subscribe to trade updates in
+    real time.
+defaultContentType: application/json
+servers:
+  development:
+    host: 'localhost:3333'
+    pathname: /socket.io
+    protocol: ws
+    description: Socket.IO server
+channels:
+  createOrder:
+    address: createOrder
+    messages:
+      orderCreated.message:
+        name: OrderCreatedEvent
+        title: Order Created (Event)
+        summary: >-
+          Server publishes 'orderCreated' event to notify that a new order has
+          been created.
+        payload:
+          $ref: '#/components/schemas/OrderCreatedPayload'
+      createOrder.message:
+        name: CreateOrderRequest
+        title: Create Order (Request)
+        summary: Client publishes a 'createOrder' event to create a new order.
+        payload:
+          $ref: '#/components/schemas/CreateOrderPayload'
+  cancelOrder:
+    address: cancelOrder
+    messages:
+      orderCancelled.message:
+        name: OrderCancelledEvent
+        title: Order Canceled (Event)
+        payload:
+          $ref: '#/components/schemas/OrderCancelledPayload'
+      cancelOrder.message:
+        name: CancelOrderRequest
+        title: Cancel Order (Request)
+        payload:
+          $ref: '#/components/schemas/CancelOrderPayload'
+  tradeExecuted:
+    address: tradeExecuted
+    messages:
+      tradeExecuted.message:
+        name: TradeExecutedEvent
+        title: Trade Executed (Event)
+        summary: >-
+          Server publishes 'tradeExecuted' event when a matching engine executes
+          a trade.
+        payload:
+          $ref: '#/components/schemas/TradeExecutedPayload'
+  getTopOrderBook:
+    address: getTopOrderBook
+    messages:
+      topOrderBook.message:
+        name: TopOrderBookEvent
+        title: Top OrderBook (Response)
+        summary: Server responds with the top bids and asks for the pair.
+        payload:
+          $ref: '#/components/schemas/TopOrderBookPayload'
+      getTopOrderBook.message:
+        name: GetTopOrderBookRequest
+        title: Get Top OrderBook (Request)
+        summary: Client requests the top N bids/asks for a given pair.
+        payload:
+          $ref: '#/components/schemas/GetTopOrderBookPayload'
+operations:
+  orderCreated:
+    action: receive
+    channel:
+      $ref: '#/channels/createOrder'
+    messages:
+      - $ref: '#/channels/createOrder/messages/orderCreated.message'
+  createOrder:
+    action: send
+    channel:
+      $ref: '#/channels/createOrder'
+    messages:
+      - $ref: '#/channels/createOrder/messages/createOrder.message'
+  orderCancelled:
+    action: receive
+    channel:
+      $ref: '#/channels/cancelOrder'
+    messages:
+      - $ref: '#/channels/cancelOrder/messages/orderCancelled.message'
+  cancelOrder:
+    action: send
+    channel:
+      $ref: '#/channels/cancelOrder'
+    messages:
+      - $ref: '#/channels/cancelOrder/messages/cancelOrder.message'
+  tradeExecuted:
+    action: receive
+    channel:
+      $ref: '#/channels/tradeExecuted'
+    messages:
+      - $ref: '#/channels/tradeExecuted/messages/tradeExecuted.message'
+  topOrderBook:
+    action: receive
+    channel:
+      $ref: '#/channels/getTopOrderBook'
+    messages:
+      - $ref: '#/channels/getTopOrderBook/messages/topOrderBook.message'
+  getTopOrderBook:
+    action: send
+    channel:
+      $ref: '#/channels/getTopOrderBook'
+    messages:
+      - $ref: '#/channels/getTopOrderBook/messages/getTopOrderBook.message'
+components:
+  schemas:
+    CreateOrderPayload:
+      type: object
+      properties:
+        pair:
+          type: string
+          example: BTC-USD
+        side:
+          type: string
+          enum:
+            - buy
+            - sell
+          example: buy
+        price:
+          type: number
+          example: 20000
+        quantity:
+          type: number
+          example: 1.5
+      required:
+        - pair
+        - side
+        - price
+        - quantity
+    OrderCreatedPayload:
+      type: object
+      properties:
+        orderId:
+          type: string
+          example: abc123
+        pair:
+          type: string
+          example: BTC-USD
+        side:
+          type: string
+          example: buy
+        price:
+          type: number
+          example: 20000
+        quantity:
+          type: number
+          example: 1.5
+        status:
+          type: string
+          example: open
+      required:
+        - orderId
+        - pair
+        - side
+        - price
+        - quantity
+        - status
+    CancelOrderPayload:
+      type: object
+      properties:
+        orderId:
+          type: string
+          example: abc123
+      required:
+        - orderId
+    OrderCancelledPayload:
+      type: object
+      properties:
+        orderId:
+          type: string
+          example: abc123
+        status:
+          type: string
+          example: cancelled
+      required:
+        - orderId
+        - status
+    TradeExecutedPayload:
+      type: object
+      properties:
+        tradeId:
+          type: string
+          example: trade-xyz789
+        pair:
+          type: string
+          example: BTC-USD
+        buyOrderId:
+          type: string
+          example: buy123
+        sellOrderId:
+          type: string
+          example: sell456
+        quantity:
+          type: number
+          example: 2
+        price:
+          type: number
+          example: 20000
+        timestamp:
+          type: string
+          format: date-time
+          example: '2025-01-20T12:34:56.789Z'
+      required:
+        - tradeId
+        - pair
+        - buyOrderId
+        - sellOrderId
+        - quantity
+        - price
+        - timestamp
+    GetTopOrderBookPayload:
+      type: object
+      properties:
+        pair:
+          type: string
+          example: BTC-USD
+        limit:
+          type: number
+          example: 5
+      required:
+        - pair
+    TopOrderBookPayload:
+      type: object
+      properties:
+        pair:
+          type: string
+          example: BTC-USD
+        bids:
+          type: array
+          items:
+            type: object
+            properties:
+              price:
+                type: number
+              quantity:
+                type: number
+              asks:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    price:
+                      type: number
+                    quantity:
+                      type: number
+      required:
+        - pair
+        - bids
+        - asks
