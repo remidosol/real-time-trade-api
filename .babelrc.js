@@ -6,9 +6,6 @@ export default {
         targets: {
           node: 'current',
         },
-        modules: false,
-        useBuiltIns: 'usage',
-        corejs: 3,
       },
     ],
   ],

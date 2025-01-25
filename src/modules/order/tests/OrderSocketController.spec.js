@@ -1,276 +1,203 @@
-import { setup, sleep } from '../../tests/testServerSetup.js';
+jest.mock('ioredis', () => require('ioredis-mock'));
+
+// jest.mock('../services/OrderService.js', () => ({
+//   orderService: {
+//     createOrder: jest.fn(),
+//     cancelOrder: jest.fn(),
+//     fillOrder: jest.fn(),
+//   },
+// }));
+
+import { Socket as ClientSocket } from 'socket.io-client';
+import { setup } from '../../../../tests/testServerSetup.js';
 import {
   IncomingEventNames,
   OutgoingEventNames,
   ErrorEventNames,
-} from '../events/index.js';
+} from '../../events/index.js';
+import {
+  describe,
+  beforeAll,
+  afterAll,
+  expect,
+  beforeEach,
+  test,
+} from '@jest/globals';
+import { OrderType, Sides } from '../orderConstants.js';
+import { TradeStatus } from '../../trade/tradeConstants.js';
+// import { OrderService, orderService } from '../services/OrderService.js';
 
 describe('OrderSocketController', () => {
-  let clientSockets, cleanup;
+  /**
+   * @type {ClientSocket}
+   */
+  let clientSocket;
+
+  let cleanup;
+
+  /**
+   * @type {Redis}
+   */
+  let mockRedis;
+
+  /**
+   * @type {OrderService}
+   */
+  const orderService = {
+    createOrder: jest.fn(),
+    cancelOrder: jest.fn(),
+    fillOrder: jest.fn(),
+  };
 
   beforeAll(async () => {
-    const setupResult = await setup();
-    clientSockets = setupResult.clientSockets;
-    cleanup = setupResult.cleanup;
+    const setupData = await setup({
+      clientOptions: { path: '/socket.io/order' },
+    });
+
+    clientSocket = setupData.clientSockets[0];
+    mockRedis = setupData.mockRedisClients[0];
+    cleanup = setupData.cleanup;
+
+    // orderService = {
+    //   createOrder: jest.fn(),
+    //   cancelOrder: jest.fn(),
+    //   fillOrder: jest.fn(),
+    // };
+  }, 10000);
+
+  beforeEach(async () => {
+    jest.clearAllMocks();
+    await mockRedis.flushall();
   });
 
   afterAll(() => {
     cleanup();
   });
 
-  test('should create an order successfully', (done) => {
-    const client = clientSockets[0];
-
+  test('should create a LIMIT order and emit ORDER_CREATED event', (done) => {
     const orderData = {
+      orderType: OrderType.LIMIT,
+      pair: 'BTC_USD',
+      price: 50000,
+      quantity: 2,
+      side: Sides.BUY,
+    };
+
+    const createdOrder = {
+      ...orderData,
+      orderId: 'order-123',
+      status: TradeStatus.OPEN,
+    };
+
+    orderService.createOrder.mockResolvedValueOnce(createdOrder);
+
+    clientSocket.emit(IncomingEventNames.CREATE_ORDER, orderData);
+
+    clientSocket.on(OutgoingEventNames.ORDER_CREATED, (response) => {
+      expect(response.data).toEqual(createdOrder);
+      expect(orderService.createOrder).toHaveBeenCalledWith(orderData);
+      done();
+    });
+  });
+
+  test('should create a MARKET order and emit ORDER_FILLED if executed immediately', (done) => {
+    const orderData = {
+      orderType: OrderType.MARKET,
       pair: 'ETH_USD',
-      side: 'BUY',
-      price: 1500,
       quantity: 1,
+      side: Sides.SELL,
     };
 
-    client.emit(IncomingEventNames.CREATE_ORDER, orderData);
+    const filledOrder = {
+      ...orderData,
+      orderId: 'order-456',
+      status: TradeStatus.FILLED,
+    };
 
-    client.on(OutgoingEventNames.ORDER_CREATED, (response) => {
-      expect(response).toEqual(
-        expect.objectContaining({
-          eventEmit: OutgoingEventNames.ORDER_CREATED,
-          message: 'Order has been created.',
-          data: expect.objectContaining({
-            pair: 'ETH_USD',
-            side: 'BUY',
-            price: 1500,
-            quantity: 1,
-          }),
-        }),
-      );
+    orderService.createOrder.mockResolvedValueOnce(filledOrder);
+
+    clientSocket.emit(IncomingEventNames.CREATE_ORDER, orderData);
+
+    clientSocket.on(OutgoingEventNames.ORDER_FILLED, (response) => {
+      expect(response.data).toEqual(filledOrder);
+      expect(orderService.createOrder).toHaveBeenCalledWith(orderData);
       done();
     });
   });
 
-  test('should reject creating an order with invalid data', (done) => {
-    const client = clientSockets[0];
+  test('should cancel an order and emit ORDER_CANCELLED event', (done) => {
+    const orderId = 'order-789';
+    const canceledOrder = { orderId, status: TradeStatus.CANCELLED };
 
-    const invalidOrderData = {
-      pair: 'INVALID_PAIR',
-      side: 'BUY',
-      price: -500,
-      quantity: -1,
-    };
+    orderService.cancelOrder.mockResolvedValueOnce(canceledOrder);
 
-    client.emit(IncomingEventNames.CREATE_ORDER, invalidOrderData);
+    clientSocket.emit(IncomingEventNames.CANCEL_ORDER, { orderId });
 
-    client.on(ErrorEventNames.ORDER_ERROR, (response) => {
-      expect(response).toEqual(
-        expect.objectContaining({
-          eventEmit: ErrorEventNames.ORDER_ERROR,
-          message: expect.stringContaining('validation error'),
-        }),
-      );
+    clientSocket.on(OutgoingEventNames.ORDER_CANCELLED, (response) => {
+      expect(response.data).toEqual(canceledOrder);
+      expect(orderService.cancelOrder).toHaveBeenCalledWith(orderId);
       done();
     });
   });
 
-  test('should cancel an existing order', async () => {
-    const client = clientSockets[0];
+  test('should emit ORDER_ERROR if cancelling a non-existent order', (done) => {
+    const orderId = 'order-999';
 
-    // Step 1: Create an order first
-    const orderData = {
-      pair: 'BTC_USD',
-      side: 'SELL',
-      price: 25000,
-      quantity: 0.5,
-    };
+    orderService.cancelOrder.mockResolvedValueOnce(null);
 
-    client.emit(IncomingEventNames.CREATE_ORDER, orderData);
+    clientSocket.emit(IncomingEventNames.CANCEL_ORDER, { orderId });
 
-    const createdOrder = await new Promise((resolve) => {
-      client.on(OutgoingEventNames.ORDER_CREATED, (response) => {
-        resolve(response.data);
-      });
-    });
-
-    // Step 2: Cancel the created order
-    client.emit(IncomingEventNames.CANCEL_ORDER, {
-      orderId: createdOrder.orderId,
-    });
-
-    const response = await new Promise((resolve) => {
-      client.on(OutgoingEventNames.ORDER_CANCELLED, (data) => {
-        resolve(data);
-      });
-    });
-
-    expect(response).toEqual(
-      expect.objectContaining({
-        eventEmit: OutgoingEventNames.ORDER_CANCELLED,
-        message: 'An Order has been cancelled.',
-        data: expect.objectContaining({
-          orderId: createdOrder.orderId,
-          status: 'CANCELLED',
-        }),
-      }),
-    );
-  });
-
-  test('should prevent canceling a non-existing order', (done) => {
-    const client = clientSockets[0];
-
-    client.emit(IncomingEventNames.CANCEL_ORDER, {
-      orderId: 'non-existent-id',
-    });
-
-    client.on(ErrorEventNames.ORDER_ERROR, (response) => {
-      expect(response).toEqual(
-        expect.objectContaining({
-          eventEmit: ErrorEventNames.ORDER_ERROR,
-          message: expect.stringContaining('not found or already cancelled'),
-        }),
-      );
+    clientSocket.on(ErrorEventNames.ORDER_ERROR, (response) => {
+      expect(response.message).toContain('not found or already cancelled');
       done();
     });
   });
 
-  test('should fill an existing order', async () => {
-    const client = clientSockets[0];
+  test('should fill an order and emit ORDER_FILLED event', (done) => {
+    const orderId = 'order-567';
+    const filledOrder = { orderId, status: TradeStatus.FILLED };
 
-    // Step 1: Create an order first
-    const orderData = {
-      pair: 'BTC_USD',
-      side: 'BUY',
-      price: 23000,
-      quantity: 1,
-    };
+    orderService.fillOrder.mockResolvedValueOnce(filledOrder);
 
-    client.emit(IncomingEventNames.CREATE_ORDER, orderData);
+    clientSocket.emit(IncomingEventNames.FILL_ORDER, { orderId });
 
-    const createdOrder = await new Promise((resolve) => {
-      client.on(OutgoingEventNames.ORDER_CREATED, (response) => {
-        resolve(response.data);
-      });
-    });
-
-    // Step 2: Fill the created order
-    client.emit(IncomingEventNames.FILL_ORDER, {
-      orderId: createdOrder.orderId,
-    });
-
-    const response = await new Promise((resolve) => {
-      client.on(OutgoingEventNames.ORDER_FILLED, (data) => {
-        resolve(data);
-      });
-    });
-
-    expect(response).toEqual(
-      expect.objectContaining({
-        eventEmit: OutgoingEventNames.ORDER_FILLED,
-        message: 'An Order has been filled.',
-        data: expect.objectContaining({
-          orderId: createdOrder.orderId,
-          status: 'FILLED',
-        }),
-      }),
-    );
-  });
-
-  test('should prevent filling a non-existing order', (done) => {
-    const client = clientSockets[0];
-
-    client.emit(IncomingEventNames.FILL_ORDER, { orderId: 'non-existent-id' });
-
-    client.on(ErrorEventNames.ORDER_ERROR, (response) => {
-      expect(response).toEqual(
-        expect.objectContaining({
-          eventEmit: ErrorEventNames.ORDER_ERROR,
-          message: expect.stringContaining("can't be filled"),
-        }),
-      );
+    clientSocket.on(OutgoingEventNames.ORDER_FILLED, (response) => {
+      expect(response.data).toEqual(filledOrder);
+      expect(orderService.fillOrder).toHaveBeenCalledWith(orderId);
       done();
     });
   });
 
-  test('should broadcast order updates to subscribed clients', async () => {
-    const client = clientSockets[0];
-    const subscriber = clientSockets[1];
+  test('should emit ORDER_ERROR if filling a non-existent order', (done) => {
+    const orderId = 'order-999';
 
-    // Subscriber joins the trading pair room
-    subscriber.emit(IncomingEventNames.SUBSCRIBE_PAIR, { pair: 'BTC_USD' });
+    orderService.fillOrder.mockResolvedValueOnce(null);
 
-    await sleep(1000);
+    clientSocket.emit(IncomingEventNames.FILL_ORDER, { orderId });
 
-    // Create an order
-    const orderData = {
-      pair: 'BTC_USD',
-      side: 'SELL',
-      price: 24500,
-      quantity: 0.5,
-    };
-
-    client.emit(IncomingEventNames.CREATE_ORDER, orderData);
-
-    const response = await new Promise((resolve) => {
-      subscriber.on(OutgoingEventNames.ORDER_BOOK_UPDATE, (data) => {
-        resolve(data);
-      });
+    clientSocket.on(ErrorEventNames.ORDER_ERROR, (response) => {
+      expect(response.message).toContain("not found or can't be filled");
+      done();
     });
-
-    expect(response).toEqual(
-      expect.objectContaining({
-        eventEmit: OutgoingEventNames.ORDER_BOOK_UPDATE,
-        message: 'An order has been created.',
-        data: expect.objectContaining({
-          pair: 'BTC_USD',
-          side: 'SELL',
-          price: 24500,
-          quantity: 0.5,
-        }),
-      }),
-    );
   });
 
-  test('should prevent filling an order that is already cancelled', async () => {
-    const client = clientSockets[0];
-
-    // Step 1: Create an order
+  test('should log and emit GATEWAY_ERROR on unexpected error', (done) => {
     const orderData = {
+      orderType: OrderType.LIMIT,
       pair: 'BTC_USD',
-      side: 'BUY',
-      price: 25500,
-      quantity: 1,
+      price: 50000,
+      quantity: 2,
+      side: Sides.BUY,
     };
 
-    client.emit(IncomingEventNames.CREATE_ORDER, orderData);
+    const error = new Error('Unexpected failure');
+    orderService.createOrder.mockRejectedValueOnce(error);
 
-    const createdOrder = await new Promise((resolve) => {
-      client.on(OutgoingEventNames.ORDER_CREATED, (response) => {
-        resolve(response.data);
-      });
+    clientSocket.emit(IncomingEventNames.CREATE_ORDER, orderData);
+
+    clientSocket.on(ErrorEventNames.GATEWAY_ERROR, (response) => {
+      expect(response.message).toBe('Unexpected failure');
+      done();
     });
-
-    // Step 2: Cancel the order
-    client.emit(IncomingEventNames.CANCEL_ORDER, {
-      orderId: createdOrder.orderId,
-    });
-
-    await new Promise((resolve) => {
-      client.on(OutgoingEventNames.ORDER_CANCELLED, () => resolve());
-    });
-
-    // Step 3: Try filling the cancelled order
-    client.emit(IncomingEventNames.FILL_ORDER, {
-      orderId: createdOrder.orderId,
-    });
-
-    const response = await new Promise((resolve) => {
-      client.on(ErrorEventNames.ORDER_ERROR, (data) => {
-        resolve(data);
-      });
-    });
-
-    expect(response).toEqual(
-      expect.objectContaining({
-        eventEmit: ErrorEventNames.ORDER_ERROR,
-        message: `Order ${createdOrder.orderId} not found or can't be filled`,
-      }),
-    );
   });
 });

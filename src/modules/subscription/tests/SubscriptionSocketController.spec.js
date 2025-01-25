@@ -1,17 +1,47 @@
-import { setup, sleep } from '../../tests/testServerSetup.js';
+import { setup, sleep } from '../../../../tests/testServerSetup.js';
 import {
   ErrorEventNames,
   IncomingEventNames,
   OutgoingEventNames,
-} from '../events/index.js';
+} from '../../events/index.js';
+import {
+  describe,
+  beforeAll,
+  afterAll,
+  expect,
+  beforeEach,
+  test,
+} from '@jest/globals';
+import { Socket as ClientSocket } from 'socket.io-client';
+
+jest.mock('ioredis', () => require('ioredis-mock'));
 
 describe('SubscriptionSocketController', () => {
-  let clientSockets, cleanup;
+  /**
+   * @type {ClientSocket}
+   */
+  let clientSocket;
+
+  let cleanup;
+
+  /**
+   * @type {Redis}
+   */
+  let mockRedis;
 
   beforeAll(async () => {
-    const setupResult = await setup();
-    clientSockets = setupResult.clientSockets;
+    const setupResult = await setup({
+      clientOptions: { path: '/subscription' },
+    });
+
+    clientSocket = setupResult.clientSockets[0];
+    mockRedis = setupResult.mockRedisClients[0];
     cleanup = setupResult.cleanup;
+  }, 10000);
+
+  beforeEach(async () => {
+    jest.clearAllMocks();
+    await mockRedis.flushall();
   });
 
   afterAll(() => {
@@ -19,11 +49,10 @@ describe('SubscriptionSocketController', () => {
   });
 
   test('should allow a client to subscribe to a trading pair', (done) => {
-    const client = clientSockets[0];
+    clientSocket.emit(IncomingEventNames.SUBSCRIBE_PAIR, { pair: 'ETH_USD' });
 
-    client.emit(IncomingEventNames.SUBSCRIBE_PAIR, { pair: 'ETH_USD' });
-
-    client.on(OutgoingEventNames.SUBSCRIBED, (response) => {
+    clientSocket.on(OutgoingEventNames.SUBSCRIBED, (response) => {
+      console.log(response);
       expect(response).toEqual(
         expect.objectContaining({
           eventEmit: OutgoingEventNames.SUBSCRIBED,
@@ -35,11 +64,9 @@ describe('SubscriptionSocketController', () => {
   });
 
   test('should prevent subscribing to the same pair twice', (done) => {
-    const client = clientSockets[0];
+    clientSocket.emit(IncomingEventNames.SUBSCRIBE_PAIR, { pair: 'ETH_USD' });
 
-    client.emit(IncomingEventNames.SUBSCRIBE_PAIR, { pair: 'ETH_USD' });
-
-    client.on(ErrorEventNames.SUBSCRIPTION_ERROR, (response) => {
+    clientSocket.on(ErrorEventNames.SUBSCRIPTION_ERROR, (response) => {
       expect(response).toEqual(
         expect.objectContaining({
           eventEmit: ErrorEventNames.SUBSCRIPTION_ERROR,
@@ -51,11 +78,9 @@ describe('SubscriptionSocketController', () => {
   });
 
   test('should allow a client to unsubscribe from a trading pair', (done) => {
-    const client = clientSockets[0];
+    clientSocket.emit(IncomingEventNames.UNSUBSCRIBE_PAIR, { pair: 'ETH_USD' });
 
-    client.emit(IncomingEventNames.UNSUBSCRIBE_PAIR, { pair: 'ETH_USD' });
-
-    client.on(OutgoingEventNames.UNSUBSCRIBED, (response) => {
+    clientSocket.on(OutgoingEventNames.UNSUBSCRIBED, (response) => {
       expect(response).toEqual(
         expect.objectContaining({
           eventEmit: OutgoingEventNames.UNSUBSCRIBED,
@@ -67,11 +92,9 @@ describe('SubscriptionSocketController', () => {
   });
 
   test('should prevent unsubscribing from a pair the client is not subscribed to', (done) => {
-    const client = clientSockets[0];
+    clientSocket.emit(IncomingEventNames.UNSUBSCRIBE_PAIR, { pair: 'ETH_USD' });
 
-    client.emit(IncomingEventNames.UNSUBSCRIBE_PAIR, { pair: 'ETH_USD' });
-
-    client.on(ErrorEventNames.SUBSCRIPTION_ERROR, (response) => {
+    clientSocket.on(ErrorEventNames.SUBSCRIPTION_ERROR, (response) => {
       expect(response).toEqual(
         expect.objectContaining({
           eventEmit: ErrorEventNames.SUBSCRIPTION_ERROR,
@@ -83,16 +106,14 @@ describe('SubscriptionSocketController', () => {
   });
 
   test('should return the top order book for subscribed pairs', async () => {
-    const client = clientSockets[0];
-
-    client.emit(IncomingEventNames.SUBSCRIBE_PAIR, { pair: 'BTC_USD' });
+    clientSocket.emit(IncomingEventNames.SUBSCRIBE_PAIR, { pair: 'BTC_USD' });
 
     await sleep(1000); // Give time for the subscription to complete
 
-    client.emit(IncomingEventNames.GET_TOP_ORDER_BOOK, {});
+    clientSocket.emit(IncomingEventNames.GET_TOP_ORDER_BOOK, {});
 
     const response = await new Promise((resolve) => {
-      client.on(OutgoingEventNames.TOP_ORDER_BOOK, (data) => {
+      clientSocket.on(OutgoingEventNames.TOP_ORDER_BOOK, (data) => {
         resolve(data);
       });
     });
@@ -108,16 +129,14 @@ describe('SubscriptionSocketController', () => {
   });
 
   test('should not return order book data for unsubscribed pairs', async () => {
-    const client = clientSockets[0];
-
-    client.emit(IncomingEventNames.UNSUBSCRIBE_PAIR, { pair: 'BTC_USD' });
+    clientSocket.emit(IncomingEventNames.UNSUBSCRIBE_PAIR, { pair: 'BTC_USD' });
 
     await sleep(1000);
 
-    client.emit(IncomingEventNames.GET_TOP_ORDER_BOOK, {});
+    clientSocket.emit(IncomingEventNames.GET_TOP_ORDER_BOOK, {});
 
     const response = await new Promise((resolve) => {
-      client.on(OutgoingEventNames.TOP_ORDER_BOOK, (data) => {
+      clientSocket.on(OutgoingEventNames.TOP_ORDER_BOOK, (data) => {
         resolve(data);
       });
     });
@@ -126,14 +145,12 @@ describe('SubscriptionSocketController', () => {
   });
 
   test('should automatically broadcast top order book data every 8 seconds', async () => {
-    const client = clientSockets[0];
-
-    client.emit(IncomingEventNames.SUBSCRIBE_PAIR, { pair: 'ETH_USD' });
+    clientSocket.emit(IncomingEventNames.SUBSCRIBE_PAIR, { pair: 'ETH_USD' });
 
     await sleep(1000);
 
     const response = await new Promise((resolve) => {
-      client.on(OutgoingEventNames.TOP_ORDER_BOOK, (data) => {
+      clientSocket.on(OutgoingEventNames.TOP_ORDER_BOOK, (data) => {
         resolve(data);
       });
     });
@@ -149,22 +166,20 @@ describe('SubscriptionSocketController', () => {
   });
 
   test('should stop broadcasting when all clients disconnect', async () => {
-    const client = clientSockets[0];
-
-    client.emit(IncomingEventNames.SUBSCRIBE_PAIR, { pair: 'ETH_USD' });
+    clientSocket.emit(IncomingEventNames.SUBSCRIBE_PAIR, { pair: 'ETH_USD' });
 
     await sleep(1000);
 
-    client.disconnect();
+    clientSocket.disconnect();
 
     await sleep(9000); // Wait to see if the interval stops
 
-    client.connect();
+    clientSocket.connect();
 
-    client.emit(IncomingEventNames.GET_TOP_ORDER_BOOK, {});
+    clientSocket.emit(IncomingEventNames.GET_TOP_ORDER_BOOK, {});
 
     const response = await new Promise((resolve) => {
-      client.on(OutgoingEventNames.TOP_ORDER_BOOK, (data) => {
+      clientSocket.on(OutgoingEventNames.TOP_ORDER_BOOK, (data) => {
         resolve(data);
       });
     });

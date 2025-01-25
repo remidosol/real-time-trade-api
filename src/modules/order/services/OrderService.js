@@ -1,8 +1,11 @@
 import { v4 as uuidv4 } from 'uuid';
-import { orderRepository } from '../repositories/OrderRepository.js';
+import {
+  OrderRepository,
+  orderRepository,
+} from '../repositories/OrderRepository.js';
 import { Order } from '../models/index.js';
 import { SupportedPairs } from '../../../core/globalConstants.js';
-import { TradeStatus } from '../../trade/index.js';
+import { TradeService, TradeStatus } from '../../trade/index.js';
 // import { tradeService } from '../../trade/index.js';
 import logger from '../../../core/logger/Logger.js';
 import { OrderType } from '../orderConstants.js';
@@ -10,16 +13,27 @@ import { OrderType } from '../orderConstants.js';
 // To prevent circular dependency, we'll use a module-level variable
 let tradeService;
 
-class OrderService {
+export class OrderService {
+  /**
+   * @type {OrderRepository}
+   */
   #orderRepository;
+
+  /**
+   * @type {TradeService}
+   */
   #tradeService;
 
-  constructor() {
-    this.#orderRepository = orderRepository;
-    // this.#tradeService = tradeService;
-    this.getTradeService().then((tradeService) => {
-      this.#tradeService = tradeService;
-    });
+  constructor(_orderRepository, _tradeService) {
+    this.#orderRepository = _orderRepository ?? orderRepository;
+
+    if (_tradeService) {
+      this.#tradeService = _tradeService;
+    } else {
+      this.getTradeService().then((tradeService) => {
+        this.#tradeService = tradeService;
+      });
+    }
   }
 
   /**

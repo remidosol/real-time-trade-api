@@ -5,13 +5,13 @@ import { orderService } from '../../order/services/OrderService.js';
 import { SupportedPairs } from '../../../core/globalConstants.js';
 import { TradeStatus } from '../tradeConstants.js';
 
-class TradeService {
+export class TradeService {
   #tradeRepository;
   #orderService;
 
-  constructor() {
-    this.#tradeRepository = tradeRepository;
-    this.#orderService = orderService;
+  constructor(_tradeRepository, _orderService) {
+    this.#tradeRepository = _tradeRepository ?? tradeRepository;
+    this.#orderService = _orderService ?? orderService;
   }
 
   /**

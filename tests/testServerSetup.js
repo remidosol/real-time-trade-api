@@ -1,12 +1,13 @@
-import dotenv from 'dotenv';
 import { createServer } from 'http';
 import { Server, Socket as ServerSocket } from 'socket.io';
 import { ServerOptions } from 'engine.io';
-import { Socket as ClientSocket } from 'socket.io-client';
+import {
+  Socket as ClientSocket,
+  io as ioc,
+  ManagerOptions,
+} from 'socket.io-client';
 import { createAdapter } from '@socket.io/redis-streams-adapter';
 import Redis from 'ioredis';
-
-dotenv.config({});
 
 /**
  *
@@ -45,10 +46,6 @@ export const shouldNotHappen = (done) => {
   return () => done(new Error('should not happen'));
 };
 
-const initRedisClient = async () => {
-  return new Redis();
-};
-
 /**
  * Default number of nodes
  * @type {number}
@@ -58,36 +55,46 @@ const NODES_COUNT = 1;
 /**
  * To setup test server(s)
  *
- * @param {{ nodeCount: number, serverOptions?: ServerOptions } }} setupOptions
+ * @param {{ nodeCount: number, serverOptions?: ServerOptions, clientOptions?: ManagerOptions } }} setupOptions
  *
- * @returns {Promise<{server: Server; serverSockets: ServerSocket[]; clientSockets: ClientSocket[]; cleanup: () => void; ports: number[]}>}
+ * @returns {Promise<{server: Server; serverSockets: ServerSocket[]; clientSockets: ClientSocket[]; mockRedisClients: Redis[]; ports: string[]; cleanup: () => void; ports: number[]}>}
  */
-export const setup = ({ nodeCount = NODES_COUNT, serverOptions = {} } = {}) => {
+export const setup = ({
+  nodeCount = NODES_COUNT,
+  serverOptions = {},
+  clientOptions = {},
+} = {}) => {
   let server = null;
   const serverSockets = [];
   const clientSockets = [];
-  const redisClients = [];
+  const mockRedisClients = [];
   const ports = [];
 
-  return new Promise(async (resolve) => {
+  return new Promise((resolve) => {
     for (let i = 1; i <= nodeCount; i++) {
-      const redisClient = await initRedisClient();
+      const redisClient = new (require('ioredis-mock'))();
 
-      const httpServer = createServer();
+      const httpServer = createServer({});
       const io = new Server(httpServer, {
-        adapter: createAdapter(redisClient),
+        cors: { origin: '*' },
+        adapter: createAdapter(redisClient, {
+          maxLen: 45,
+          streamName: 'trade_api_stream',
+        }),
         ...serverOptions,
       });
 
       httpServer.listen(() => {
         const port = httpServer.address().port;
-        const clientSocket = ioc(`http://localhost:${port}`);
+        const clientSocket = ioc(`ws://localhost:${port}`, {
+          ...clientOptions,
+        });
 
         io.on('connection', async (socket) => {
           clientSockets.push(clientSocket);
           serverSockets.push(socket);
           server = io;
-          redisClients.push(redisClient);
+          mockRedisClients.push(redisClient);
           ports.push(port);
 
           if (server) {
@@ -99,11 +106,13 @@ export const setup = ({ nodeCount = NODES_COUNT, serverOptions = {} } = {}) => {
               server,
               serverSockets,
               clientSockets,
+              mockRedisClients,
               ports,
               cleanup: () => {
                 server.close();
+                serverSockets.forEach((socket) => socket.disconnect());
                 clientSockets.forEach((socket) => socket.disconnect());
-                redisClients.forEach((redisClient) => redisClient.quit());
+                mockRedisClients.forEach((redisClient) => redisClient.quit());
               },
             });
           }
