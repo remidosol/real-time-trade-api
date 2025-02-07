@@ -22,9 +22,9 @@ export class SubscriptionSocketController {
    * @constructor
    * @param {Server} io
    */
-  constructor(io) {
+  constructor(io, _orderService) {
     this.#io = io;
-    this.#orderService = orderService;
+    this.#orderService = _orderService ?? orderService;
     this.#broadcastInterval = null;
 
     this.#nameSpace = this.#io.of('/subscription');
@@ -67,7 +67,7 @@ export class SubscriptionSocketController {
 
     if (await this.#isSubscribed(socket, data.pair)) {
       socket.emit(
-        ...EmitResponse.Success({
+        ...EmitResponse.Error({
           eventEmit: ErrorEventNames.SUBSCRIPTION_ERROR,
           payloadEventKey: ErrorEventNames.SUBSCRIPTION_ERROR,
           message: `You already subscribed to ${data.pair}`,

@@ -71,7 +71,10 @@ Provides middleware functions for converting errors and handling them uniformly 
 **Usage:**
 
 ```javascript
-import { errorConverter, errorHandler } from './core/middlewares/errorHandler.js';
+import {
+  errorConverter,
+  errorHandler,
+} from './core/middlewares/errorHandler.js';
 import express from 'express';
 
 const app = express();
@@ -166,14 +169,17 @@ const tradingPair = SupportedPairs.BTC_USD;
 ## Usage
 
 1. **Error Handling:**
+
    - Use `ApiError` to throw standardized errors within your application.
    - Apply `errorConverter` and `errorHandler` middleware in your Express app to manage and respond to errors uniformly.
 
 2. **Logging:**
+
    - Utilize the `logger` instance to log informational messages, warnings, errors, and debug data.
    - Configure log levels based on the environment to control verbosity.
 
 3. **Socket.io Integration:**
+
    - Apply `validateSocket` middleware to ensure incoming Socket.io events have valid payloads.
    - Use `EmitResponse` to emit consistent responses back to clients for real-time events.
 

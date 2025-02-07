@@ -3,11 +3,11 @@ import { SupportedPairs } from '../../../core/globalConstants.js';
 import { Trade } from '../models/Trade.js';
 import logger from '../../../core/logger/Logger.js';
 
-class TradeRepository {
+export class TradeRepository {
   #redis;
 
-  constructor() {
-    this.#redis = redisClient.getClient();
+  constructor(_redis) {
+    this.#redis = _redis ?? redisClient.getClient();
   }
 
   /**

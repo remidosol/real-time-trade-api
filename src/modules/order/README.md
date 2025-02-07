@@ -78,14 +78,14 @@ Handles **order creation, matching, execution, and cancellation**.
 
 ### 📡 **WebSocket Events** (`OrderSocketController.js`)
 
-| Event Name       | Type      | Description |
-|-----------------|----------|-------------|
-| `createOrder`   | Client → Server | Creates a new order. |
-| `orderCreated`  | Server → Client | Broadcasts when an order is created. |
-| `cancelOrder`   | Client → Server | Cancels an existing order. |
-| `orderCancelled`| Server → Client | Broadcasts when an order is canceled. |
-| `fillOrder`     | Client → Server | Executes an order manually. |
-| `orderFilled`   | Server → Client | Broadcasts when an order is filled. |
+| Event Name        | Type            | Description                                   |
+| ----------------- | --------------- | --------------------------------------------- |
+| `createOrder`     | Client → Server | Creates a new order.                          |
+| `orderCreated`    | Server → Client | Broadcasts when an order is created.          |
+| `cancelOrder`     | Client → Server | Cancels an existing order.                    |
+| `orderCancelled`  | Server → Client | Broadcasts when an order is canceled.         |
+| `fillOrder`       | Client → Server | Executes an order manually.                   |
+| `orderFilled`     | Server → Client | Broadcasts when an order is filled.           |
 | `orderBookUpdate` | Server → Client | Notifies subscribers when order book changes. |
 
 ### 📜 **Example WebSocket Payloads**

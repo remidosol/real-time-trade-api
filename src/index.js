@@ -1,7 +1,7 @@
 import env from './config/env.js';
 import path from 'path';
 import { existsSync } from 'fs';
-import app from './app.js';
+import { server as app } from './app.js';
 import logger from './core/logger/Logger.js';
 import Generator from '@asyncapi/generator';
 import { fileURLToPath } from 'url';

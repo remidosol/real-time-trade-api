@@ -5,13 +5,13 @@ import { TradeStatus, tradeRepository } from '../../trade/index.js';
 import { Order } from '../models/index.js';
 import { OrderType, Sides } from '../orderConstants.js';
 
-class OrderRepository {
+export class OrderRepository {
   #redis;
   #tradeRepository;
 
-  constructor() {
-    this.#redis = redisClient.getClient();
-    this.#tradeRepository = tradeRepository;
+  constructor(_redis, _tradeRepository) {
+    this.#redis = _redis ?? redisClient.getClient();
+    this.#tradeRepository = _tradeRepository ?? tradeRepository;
   }
 
   /**
@@ -142,6 +142,7 @@ class OrderRepository {
               pair,
               1,
             );
+
             priceToUse = lastTrade.length > 0 ? lastTrade[0].price : 0.0001;
           }
         }

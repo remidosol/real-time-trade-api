@@ -31,12 +31,12 @@ Environment variables are critical for configuring your application across vario
 
 **Supported Variables:**
 
-| Variable     | Type   | Description                        | Default     |
-| ------------ | ------ | ---------------------------------- | ----------- |
-| `NODE_ENV`   | Enum   | Specifies the environment           | **Required**: `prod`, `dev`, `test` |
-| `PORT`       | String | Port number on which the server runs | `3333`      |
-| `REDIS_HOST` | String | Host address for the Redis server   | `localhost` |
-| `REDIS_PORT` | String | Port number for the Redis server    | `6379`      |
+| Variable     | Type   | Description                          | Default                             |
+| ------------ | ------ | ------------------------------------ | ----------------------------------- |
+| `NODE_ENV`   | Enum   | Specifies the environment            | **Required**: `prod`, `dev`, `test` |
+| `PORT`       | String | Port number on which the server runs | `3333`                              |
+| `REDIS_HOST` | String | Host address for the Redis server    | `localhost`                         |
+| `REDIS_PORT` | String | Port number for the Redis server     | `6379`                              |
 
 ### Validation with Zod
 
@@ -197,18 +197,22 @@ import redisClient from './config/RedisClient.js';
 ## Best Practices
 
 1. **Secure Environment Variables:**
+
    - Store sensitive information like API keys, database credentials, and secrets in the `.env` file.
    - Ensure `.env` is included in `.gitignore` to prevent accidental commits to version control.
 
 2. **Validate All Configurations:**
+
    - Use schema validation (like Zod) to enforce the presence and correct format of environment variables.
    - Log and handle configuration errors gracefully to prevent unexpected application behavior.
 
 3. **Centralize Configuration Management:**
+
    - Keep all configuration-related files within the `config` directory for easy access and management.
    - Avoid scattering configuration logic across different parts of the application.
 
 4. **Handle Redis Connections Carefully:**
+
    - Implement robust error handling and reconnection strategies to maintain Redis reliability.
    - Close Redis connections gracefully to prevent memory leaks or dangling connections.
 
@@ -219,10 +223,12 @@ import redisClient from './config/RedisClient.js';
 ## Troubleshooting
 
 - **Configuration Validation Errors:**
+
   - **Issue:** Application logs a "Config validation error" with details.
   - **Solution:** Ensure all required environment variables are defined and correctly formatted in your `.env` file.
 
 - **Redis Connection Issues:**
+
   - **Issue:** Redis client fails to connect or frequently reconnects.
   - **Solution:**
     - Verify Redis server is running and accessible at the specified `REDIS_HOST` and `REDIS_PORT`.

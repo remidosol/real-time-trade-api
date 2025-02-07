@@ -1,25 +1,39 @@
 import { v4 as uuidv4 } from 'uuid';
-import { orderRepository } from '../repositories/OrderRepository.js';
+import {
+  OrderRepository,
+  orderRepository,
+} from '../repositories/OrderRepository.js';
 import { Order } from '../models/index.js';
 import { SupportedPairs } from '../../../core/globalConstants.js';
-import { TradeStatus } from '../../trade/index.js';
+import { TradeService, TradeStatus } from '../../trade/index.js';
 // import { tradeService } from '../../trade/index.js';
 import logger from '../../../core/logger/Logger.js';
-import { OrderType } from '../orderConstants.js';
+import { OrderType, Sides } from '../orderConstants.js';
 
 // To prevent circular dependency, we'll use a module-level variable
 let tradeService;
 
-class OrderService {
+export class OrderService {
+  /**
+   * @type {OrderRepository}
+   */
   #orderRepository;
+
+  /**
+   * @type {TradeService}
+   */
   #tradeService;
 
-  constructor() {
-    this.#orderRepository = orderRepository;
-    // this.#tradeService = tradeService;
-    this.getTradeService().then((tradeService) => {
-      this.#tradeService = tradeService;
-    });
+  constructor(_orderRepository, _tradeService) {
+    this.#orderRepository = _orderRepository ?? orderRepository;
+
+    if (_tradeService) {
+      this.#tradeService = _tradeService;
+    } else {
+      this.getTradeService().then((tradeService) => {
+        this.#tradeService = tradeService;
+      });
+    }
   }
 
   /**
@@ -38,6 +52,11 @@ class OrderService {
    * Creates a new order with a generated UUID, then stores it via the repository.
    *
    * @param {Object} data - { pair, price, quantity, side }
+   * @param {keyof SupportedPairs} data.pair
+   * @param {number | undefined} data.price
+   * @param {number} data.quantity
+   * @param {keyof Sides} data.side
+   *
    * @returns {Promise<Order>} the newly created Order object
    */
   async createOrder(data) {
@@ -53,7 +72,7 @@ class OrderService {
         quantity: quantity,
         side: side,
         status: TradeStatus.OPEN,
-        orderType: orderType,
+        orderType,
       });
 
       // If it's a MARKET order, attempt immediate execution

@@ -1,16 +1,14 @@
 import Redis from 'ioredis';
-import dotenv from 'dotenv';
+import env from './env.js';
 import logger from '../core/logger/Logger.js';
-
-dotenv.config({});
 
 class RedisClient {
   #client;
 
   constructor() {
     this.#client = new Redis({
-      host: process.env.REDIS_HOST,
-      port: +process.env.REDIS_PORT,
+      host: env.REDIS_HOST,
+      port: +env.REDIS_PORT,
       retryStrategy: (times) => Math.min(times * 50, 2000),
       maxRetriesPerRequest: 3,
       enableReadyCheck: true,
@@ -19,10 +17,10 @@ class RedisClient {
     });
 
     this.#client.on('error', (error) => {
+      console.log(error);
       logger.error({
         ...error,
         context: '[RedisClient]',
-        message: 'Redis Client Error: ',
         error,
       });
     });
