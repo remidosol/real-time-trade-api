@@ -51,7 +51,7 @@ Defines standardized event names and validation schemas for WebSocket events.
   - Ensures consistent event structure across the system.
   - Provides centralized validation logic.
 
-### **5️⃣ Core Module (`core/`)** *(Shared utilities and configurations)*
+### **5️⃣ Core Module (`core/`)** _(Shared utilities and configurations)_
 
 Contains common functionality and infrastructure for the system.
 

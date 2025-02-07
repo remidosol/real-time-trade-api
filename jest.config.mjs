@@ -31,7 +31,7 @@ export default {
   },
 
   // Indicates whether each individual test should be reported during the run
-  verbose: true,
+  verbose: false,
 
   // An array of regexp patterns that are matched against all source file paths before transformation
   transformIgnorePatterns: ['node_modules/', '\\.pnp\\.[^\\/]+$'],

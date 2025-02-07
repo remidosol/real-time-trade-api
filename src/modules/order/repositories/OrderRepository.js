@@ -142,6 +142,7 @@ export class OrderRepository {
               pair,
               1,
             );
+
             priceToUse = lastTrade.length > 0 ? lastTrade[0].price : 0.0001;
           }
         }

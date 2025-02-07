@@ -7,7 +7,7 @@ import {
   OutgoingEventNames,
 } from '../../events/index.js';
 import logger from '../../../core/logger/Logger.js';
-import { tradeService } from '../services/TradeService.js';
+import { TradeService, tradeService } from '../services/TradeService.js';
 import { socketDtoMiddleware } from '../../../core/middlewares/validateSocket.js';
 import { EmitResponse } from '../../../core/responses/EmitResponse.js';
 
@@ -16,15 +16,19 @@ import { EmitResponse } from '../../../core/responses/EmitResponse.js';
 export class TradeSocketController {
   #io;
   #nameSpace;
+
+  /**
+   * @type {TradeService}
+   */
   #tradeService;
 
   /**
    * @constructor
    * @param {Server} io
    */
-  constructor(io) {
+  constructor(io, _tradeService) {
     this.#io = io;
-    this.#tradeService = tradeService;
+    this.#tradeService = _tradeService ?? tradeService;
 
     this.#nameSpace = this.#io.of('/trade');
 
@@ -138,7 +142,10 @@ export class TradeSocketController {
 
     try {
       const { pair, limit } = data;
-      const trades = await this.#tradeService.getRecentTrades(pair, limit);
+      const trades = await this.#tradeService.getRecentTrades(
+        pair,
+        limit ?? 10,
+      );
 
       socket.emit(
         ...EmitResponse.Success({
@@ -166,8 +173,8 @@ export class TradeSocketController {
     logger.error({ ...error, context: '[TradeSocketController]' });
     return socket.emit(
       ...EmitResponse.Error({
-        eventEmit: ErrorEventNames.TRADE_ERROR,
-        payloadEventKey: ErrorEventNames.TRADE_ERROR,
+        eventEmit: ErrorEventNames.GATEWAY_ERROR,
+        payloadEventKey: ErrorEventNames.GATEWAY_ERROR,
         message: error.message || 'An error occurred',
         error,
       }),

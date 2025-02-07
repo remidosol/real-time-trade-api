@@ -1,5 +1,5 @@
-import { createServer } from 'http';
-import { Server, Socket as ServerSocket } from 'socket.io';
+import { createServer, SocketIOServer as HttpServer } from 'http';
+import { Server as SocketIOServer, Socket as ServerSocket } from 'socket.io';
 import { ServerOptions } from 'engine.io';
 import {
   Socket as ClientSocket,
@@ -8,11 +8,24 @@ import {
 } from 'socket.io-client';
 import { createAdapter } from '@socket.io/redis-streams-adapter';
 import Redis from 'ioredis';
+import {
+  OrderRepository,
+  OrderService,
+  OrderSocketController,
+} from '../src/modules/order';
+import {
+  TradeRepository,
+  TradeService,
+  TradeSocketController,
+} from '../src/modules/trade';
+import { SubscriptionSocketController } from '../src/modules/subscription';
+import { spyOn, SpiedFunction } from 'jest-mock';
 
 /**
  *
  * @param {number} count
  * @param {Function} fn
+ * @param {JestEnvironment.} fn
  * @returns
  */
 export const times = (count, fn) => {
@@ -47,77 +60,165 @@ export const shouldNotHappen = (done) => {
 };
 
 /**
- * Default number of nodes
- * @type {number}
+ * To get mock of Redis instance
+ *
+ * @returns {Redis}
  */
-const NODES_COUNT = 1;
+export const getRedisMock = () => {
+  return new (require('ioredis-mock'))();
+};
+
+/**
+ * To get mock of Redis instance
+ *
+ * @param {{ server: SocketIOServer | undefined; mockRedis: Redis | undefined; httpServer: HttpServer | undefined; }} cleanUpParams
+ * @param {SocketIOServer | undefined} cleanUpParams.server
+ * @param {Redis | undefined} cleanUpParams.mockRedis
+ * @param {HttpServer | undefined} cleanUpParams.httpServer
+ *
+ * @returns {() => void} clean up function
+ */
+export const getCleanUp = ({ server, mockRedis, httpServer } = {}) => {
+  return () => {
+    server?.close();
+    mockRedis?.quit();
+    httpServer?.close();
+  };
+};
 
 /**
  * To setup test server(s)
  *
- * @param {{ nodeCount: number, serverOptions?: ServerOptions, clientOptions?: ManagerOptions } }} setupOptions
+ * @param {{ component: "controller"|"service"|"repository"; serverOptions?: ServerOptions; } }} setupOptions
+ * @param {"controller"|"service"|"repository"} setupOptions.component
+ * @param {ServerOptions} setupOptions.serverOptions
  *
- * @returns {Promise<{server: Server; serverSockets: ServerSocket[]; clientSockets: ClientSocket[]; mockRedisClients: Redis[]; ports: string[]; cleanup: () => void; ports: number[]}>}
+ *
+ * @returns {Promise<{ server: SocketIOServer; mockRedis: Redis; port: number; cleanUp: Function; mocks: { orderRepository: OrderRepository; tradeRepository: TradeRepository; orderService: OrderService; tradeService: TradeService }; spyOns: {[key: string]: { [key: string]: SpiedFunction }} }>} setupData
+ * @returns {SocketIOServer} setupData.server
+ * @returns {Redis} setupData.mockRedis
+ * @returns {number} setupData.port
+ * @returns {Function} setupData.cleanUp
+ * @returns {"controller"|"service"|"repository"} setupData.component
+ * @returns {{ orderRepository: OrderRepository, tradeRepository: TradeRepository, orderService: OrderService, tradeService: TradeService }} setupData.mocks
+ * @returns {OrderRepository} setupData.mocks.orderRepository
+ * @returns {TradeRepository} setupData.mocks.tradeRepository
+ * @returns {OrderService} setupData.mocks.orderService
+ * @returns {TradeService} setupData.mocks.tradeService
+ * @returns {{[key: string]: { [key: string]: SpiedFunction }}} setupData.spyOns
  */
 export const setup = ({
-  nodeCount = NODES_COUNT,
   serverOptions = {},
-  clientOptions = {},
+  component = 'repository',
 } = {}) => {
-  let server = null;
-  const serverSockets = [];
-  const clientSockets = [];
-  const mockRedisClients = [];
-  const ports = [];
+  let port;
+  let server;
+  let mockRedis;
 
   return new Promise((resolve) => {
-    for (let i = 1; i <= nodeCount; i++) {
-      const redisClient = new (require('ioredis-mock'))();
+    mockRedis = getRedisMock();
+    const httpServer = createServer({});
 
-      const httpServer = createServer({});
-      const io = new Server(httpServer, {
-        cors: { origin: '*' },
-        adapter: createAdapter(redisClient, {
-          maxLen: 45,
-          streamName: 'trade_api_stream',
+    const io = new SocketIOServer(httpServer, {
+      cors: { origin: '*' },
+      adapter: createAdapter(mockRedis, {
+        maxLen: 45,
+        streamName: 'trade_api_stream',
+      }),
+      ...serverOptions,
+    });
+
+    httpServer.listen(() => {
+      port = httpServer.address().port;
+
+      server = io;
+
+      const { spyOns, mocks } = setupMocksAndSpies(
+        component,
+        mockRedis,
+        server,
+      );
+
+      return resolve({
+        server,
+        mockRedis,
+        port,
+        cleanUp: getCleanUp({
+          httpServer,
+          mockRedis,
+          server,
         }),
-        ...serverOptions,
+        spyOns,
+        mocks,
       });
-
-      httpServer.listen(() => {
-        const port = httpServer.address().port;
-        const clientSocket = ioc(`ws://localhost:${port}`, {
-          ...clientOptions,
-        });
-
-        io.on('connection', async (socket) => {
-          clientSockets.push(clientSocket);
-          serverSockets.push(socket);
-          server = io;
-          mockRedisClients.push(redisClient);
-          ports.push(port);
-
-          if (server) {
-            server.emit('ping');
-
-            await sleep(200);
-
-            resolve({
-              server,
-              serverSockets,
-              clientSockets,
-              mockRedisClients,
-              ports,
-              cleanup: () => {
-                server.close();
-                serverSockets.forEach((socket) => socket.disconnect());
-                clientSockets.forEach((socket) => socket.disconnect());
-                mockRedisClients.forEach((redisClient) => redisClient.quit());
-              },
-            });
-          }
-        });
-      });
-    }
+    });
   });
+};
+
+/**
+ * Initializes mocks and spies based on the component type.
+ *
+ * @param {"controller"|"service"|"repository"} component
+ * @param {Redis} redisClient
+ * @param {SocketIOServer | undefined} server - The server instance; required for "controller" component, otherwise undefined.
+ * @returns {{ mocks: { orderRepository: OrderRepository, tradeRepository: TradeRepository, orderService?: OrderService, tradeService?: TradeService }; spyOns: {[key: string]: { [key: string]: SpiedFunction }} }} mocks and spyOns
+ */
+export const setupMocksAndSpies = (component, redisClient, server) => {
+  const spyOns = {};
+  const orderRepository = new OrderRepository(redisClient);
+  const tradeRepository = new TradeRepository(redisClient);
+
+  // Spy on repository methods
+  spyOns.orderRepository = {
+    addOrder: spyOn(orderRepository, 'addOrder'),
+    clearOrderBook: spyOn(orderRepository, 'clearOrderBook'),
+    deleteOrder: spyOn(orderRepository, 'deleteOrder'),
+    getOrder: spyOn(orderRepository, 'getOrder'),
+    getTopAsks: spyOn(orderRepository, 'getTopAsks'),
+    getTopBids: spyOn(orderRepository, 'getTopBids'),
+    removeOrder: spyOn(orderRepository, 'removeOrder'),
+    saveOrder: spyOn(orderRepository, 'saveOrder'),
+    setOrderStatus: spyOn(orderRepository, 'setOrderStatus'),
+    updateOrder: spyOn(orderRepository, 'updateOrder'),
+  };
+
+  spyOns.tradeRepository = {
+    getRecentTrades: spyOn(tradeRepository, 'getRecentTrades'),
+    getTrade: spyOn(tradeRepository, 'getTrade'),
+    storeTrade: spyOn(tradeRepository, 'storeTrade'),
+  };
+
+  if (component !== 'repository') {
+    let tradeService = new TradeService(tradeRepository);
+    const orderService = new OrderService(orderRepository, tradeService);
+
+    // Spy on service methods
+    spyOns.orderService = {
+      createOrder: spyOn(orderService, 'createOrder'),
+      cancelOrder: spyOn(orderService, 'cancelOrder'),
+      fillOrder: spyOn(orderService, 'fillOrder'),
+    };
+
+    tradeService = new TradeService(tradeRepository, orderService);
+    spyOns.tradeService = {
+      getRecentTrades: spyOn(tradeService, 'getRecentTrades'),
+      matchTopOrders: spyOn(tradeService, 'matchTopOrders'),
+    };
+
+    if (component === 'controller') {
+      new OrderSocketController(server, orderService);
+      new SubscriptionSocketController(server, orderService);
+      new TradeSocketController(server, tradeService);
+    }
+
+    return {
+      spyOns,
+      mocks: { orderRepository, orderService, tradeRepository, tradeService },
+    };
+  }
+
+  return {
+    spyOns,
+    mocks: { orderRepository, tradeRepository },
+  };
 };

@@ -47,19 +47,19 @@ Defines validation rules for incoming subscription requests.
 
 ### **Incoming Events (Client -> Server)**
 
-| Event | Description |
-|-------|-------------|
-| `subscribePair` | Subscribes to a trading pair |
+| Event             | Description                      |
+| ----------------- | -------------------------------- |
+| `subscribePair`   | Subscribes to a trading pair     |
 | `unsubscribePair` | Unsubscribes from a trading pair |
-| `getTopOrderBook` | Requests the latest order book |
+| `getTopOrderBook` | Requests the latest order book   |
 
 ### **Outgoing Events (Server -> Client)**
 
-| Event | Description |
-|-------|-------------|
-| `subscribed` | Acknowledgment of a successful subscription |
+| Event          | Description                                   |
+| -------------- | --------------------------------------------- |
+| `subscribed`   | Acknowledgment of a successful subscription   |
 | `unsubscribed` | Acknowledgment of a successful unsubscription |
-| `topOrderBook` | Broadcasts order book updates |
+| `topOrderBook` | Broadcasts order book updates                 |
 
 ## 🏗️ Example Payloads
 
@@ -67,8 +67,8 @@ Defines validation rules for incoming subscription requests.
 
 ```json
 {
-    "success": true,
-    "message": "Subscribing to ETH_USD pair is successful"
+  "success": true,
+  "message": "Subscribing to ETH_USD pair is successful"
 }
 ```
 
@@ -76,8 +76,8 @@ Defines validation rules for incoming subscription requests.
 
 ```json
 {
-    "success": true,
-    "message": "Unsubscribing to ETH_USD pair is successful"
+  "success": true,
+  "message": "Unsubscribing to ETH_USD pair is successful"
 }
 ```
 
@@ -85,18 +85,32 @@ Defines validation rules for incoming subscription requests.
 
 ```json
 {
-    "event": "topOrderBook",
-    "success": true,
-    "data": {
-        "ETH_USD": {
-            "bids": [
-                { "orderId": "76a7d120-e777-47e3-b5ef-4f6d36622885", "pair": "ETH_USD", "price": 15, "quantity": 0.5, "side": "BUY", "status": "OPEN" }
-            ],
-            "asks": [
-                { "orderId": "b49c5459-33a8-427a-9759-941f6217adee", "pair": "ETH_USD", "price": 15, "quantity": 0.5, "side": "SELL", "status": "OPEN" }
-            ]
+  "event": "topOrderBook",
+  "success": true,
+  "data": {
+    "ETH_USD": {
+      "bids": [
+        {
+          "orderId": "76a7d120-e777-47e3-b5ef-4f6d36622885",
+          "pair": "ETH_USD",
+          "price": 15,
+          "quantity": 0.5,
+          "side": "BUY",
+          "status": "OPEN"
         }
+      ],
+      "asks": [
+        {
+          "orderId": "b49c5459-33a8-427a-9759-941f6217adee",
+          "pair": "ETH_USD",
+          "price": 15,
+          "quantity": 0.5,
+          "side": "SELL",
+          "status": "OPEN"
+        }
+      ]
     }
+  }
 }
 ```
 

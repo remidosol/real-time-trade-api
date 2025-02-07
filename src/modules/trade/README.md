@@ -22,7 +22,7 @@ trade
 │   └── tradePairDto.js            # DTO for matching trades
 ├── models
 │   ├── Trade.js                   # Trade entity definition
-│   └── index.js                   
+│   └── index.js
 ├── repositories
 │   └── TradeRepository.js         # Trade persistence logic (Redis)
 ├── services
@@ -74,18 +74,18 @@ Manages WebSocket event handling using **Socket.IO namespaces**:
 
 ### **📤 Client → Server Events**
 
-| Event Name         | Payload Schema            | Description                              |
-|-------------------|--------------------------|------------------------------------------|
-| `matchTopOrders`  | `{ pair }`                | Matches top buy and sell orders        |
-| `getRecentTrades` | `{ pair, limit? }`        | Retrieves recent trades                 |
+| Event Name        | Payload Schema     | Description                     |
+| ----------------- | ------------------ | ------------------------------- |
+| `matchTopOrders`  | `{ pair }`         | Matches top buy and sell orders |
+| `getRecentTrades` | `{ pair, limit? }` | Retrieves recent trades         |
 
 ### **📥 Server → Client Events**
 
-| Event Name         | Payload Schema                           | Description                              |
-|-------------------|--------------------------------------|------------------------------------------|
-| `noTrade`        | `{ event: "noTrade", message: "No matching orders", data: pair }` | No trade was executed |
-| `tradeExecuted`  | `{ event: "tradeExecuted", data: trade }` | A trade was successfully executed |
-| `recentTrades`   | `{ event: "recentTrades", data: { pair, trades } }` | Response with recent trades |
+| Event Name      | Payload Schema                                                    | Description                       |
+| --------------- | ----------------------------------------------------------------- | --------------------------------- |
+| `noTrade`       | `{ event: "noTrade", message: "No matching orders", data: pair }` | No trade was executed             |
+| `tradeExecuted` | `{ event: "tradeExecuted", data: trade }`                         | A trade was successfully executed |
+| `recentTrades`  | `{ event: "recentTrades", data: { pair, trades } }`               | Response with recent trades       |
 
 ## 🎯 Future Enhancements
 

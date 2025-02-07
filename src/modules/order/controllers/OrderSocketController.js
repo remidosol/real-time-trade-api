@@ -7,7 +7,7 @@ import {
   OutgoingEventNames,
 } from '../../events/index.js';
 import logger from '../../../core/logger/Logger.js';
-import { orderService } from '../services/OrderService.js';
+import { OrderService, orderService } from '../services/OrderService.js';
 import { socketDtoMiddleware } from '../../../core/middlewares/validateSocket.js';
 import { EmitResponse } from '../../../core/responses/EmitResponse.js';
 import { OrderType } from '../orderConstants.js';
@@ -16,6 +16,10 @@ import { TradeStatus } from '../../trade/tradeConstants.js';
 export class OrderSocketController {
   #io;
   #nameSpace;
+
+  /**
+   * @type {OrderService}
+   */
   #orderService;
 
   /**
@@ -23,9 +27,9 @@ export class OrderSocketController {
    *
    * @param {Server} io
    */
-  constructor(io) {
+  constructor(io, _orderService) {
     this.#io = io;
-    this.#orderService = orderService;
+    this.#orderService = _orderService ?? orderService;
 
     this.#nameSpace = this.#io.of('/order');
 
@@ -64,7 +68,10 @@ export class OrderSocketController {
     }
 
     try {
+      console.log(data);
       const newOrder = await this.#orderService.createOrder(data);
+
+      console.log(newOrder);
 
       // Notify client
       socket.emit(

@@ -1,49 +1,60 @@
 import { TradeRepository } from '../repositories/TradeRepository.js';
 import { Trade } from '../models/Trade.js';
-import { setup } from '../../../../tests/testServerSetup.js';
-import { v4 as uuidv4 } from 'uuid';
+import {
+  getCleanUp,
+  getRedisMock,
+  setupMocksAndSpies,
+} from '../../../../tests/testServerSetup.js';
 import {
   describe,
   beforeAll,
   afterAll,
   expect,
   beforeEach,
+  afterEach,
 } from '@jest/globals';
-import Redis from 'ioredis';
 import { SupportedPairs } from '../../../core/globalConstants.js';
+import Redis from 'ioredis';
+import { v4 as uuidv4 } from 'uuid';
+
+jest.mock('uuid', () => ({
+  v4: jest.fn(() => 'mocked-trade-id'),
+}));
 
 jest.mock('ioredis', () => require('ioredis-mock'));
 
 describe('TradeRepository', () => {
-  let cleanup;
-
-  /**
-   * @type {Redis}
-   */
-  let mockRedis;
+  let cleanUp;
 
   /**
    * @type {TradeRepository}
    */
   let tradeRepository;
 
+  /**
+   * @type {Redis}
+   */
+  let mockRedis;
+
   beforeAll(async () => {
-    const setupData = await setup();
-    mockRedis = setupData.mockRedisClients[0];
-    cleanup = setupData.cleanup;
-    tradeRepository = new TradeRepository(mockRedis);
+    mockRedis = getRedisMock();
+    tradeRepository = setupMocksAndSpies('repository', mockRedis).mocks
+      .tradeRepository;
+
+    cleanUp = getCleanUp({ mockRedis });
   }, 10000);
 
-  beforeEach(async () => {
+  afterEach(async () => {
+    jest.clearAllMocks();
     await mockRedis.flushall();
   });
 
   afterAll(() => {
-    cleanup();
+    cleanUp();
   });
 
   test('should store a new trade and retrieve it', async () => {
-    const tradeId = uuidv4();
+    const tradeId = 'mocked-trade-id';
 
     const trade = new Trade({
       tradeId,
@@ -69,7 +80,7 @@ describe('TradeRepository', () => {
 
   test('should retrieve recent trades for a pair', async () => {
     const trade1 = new Trade({
-      tradeId: uuidv4(),
+      tradeId: 'mocked-trade-id',
       pair: SupportedPairs.ETH_USD,
       buyOrderId: 'buyA',
       sellOrderId: 'sellA',
@@ -79,7 +90,7 @@ describe('TradeRepository', () => {
     });
 
     const trade2 = new Trade({
-      tradeId: uuidv4(),
+      tradeId: 'mocked-trade-id',
       pair: SupportedPairs.ETH_USD,
       buyOrderId: 'buyB',
       sellOrderId: 'sellB',

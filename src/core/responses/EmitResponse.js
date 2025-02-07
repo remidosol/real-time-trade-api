@@ -66,7 +66,7 @@ export class EmitResponse {
     error = null,
   }) {
     const resp = new EmitResponse({
-      payloadEventKey,
+      event: payloadEventKey,
       success: false,
       message,
       data: null,

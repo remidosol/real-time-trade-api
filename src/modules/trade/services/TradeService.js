@@ -1,12 +1,25 @@
 import { v4 as uuidv4 } from 'uuid';
-import { tradeRepository } from '../repositories/TradeRepository.js';
+import {
+  TradeRepository,
+  tradeRepository,
+} from '../repositories/TradeRepository.js';
 import { Trade } from '../models/Trade.js';
-import { orderService } from '../../order/services/OrderService.js';
+import {
+  OrderService,
+  orderService,
+} from '../../order/services/OrderService.js';
 import { SupportedPairs } from '../../../core/globalConstants.js';
 import { TradeStatus } from '../tradeConstants.js';
 
 export class TradeService {
+  /**
+   * @type {TradeRepository}
+   */
   #tradeRepository;
+
+  /**
+   * @type {OrderService}
+   */
   #orderService;
 
   constructor(_tradeRepository, _orderService) {
@@ -92,7 +105,7 @@ export class TradeService {
    * @returns {Promise<Trade[]>} recent trades
    */
   async getRecentTrades(pair, limit = 10) {
-    return this.#tradeRepository.getRecentTrades(pair, limit);
+    return this.#tradeRepository.getRecentTrades(pair, limit ?? 10);
   }
 }
 

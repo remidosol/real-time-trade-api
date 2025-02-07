@@ -1,23 +1,32 @@
-import { OrderRepository } from '../repositories/OrderRepository.js';
-import { Order } from '../models/Order.js';
-import { OrderType, Sides } from '../orderConstants.js';
-import { TradeStatus } from '../../trade/tradeConstants.js';
-import { setup } from '../../../../tests/testServerSetup.js';
-import { v4 as uuidv4 } from 'uuid';
 import {
-  describe,
-  beforeAll,
   afterAll,
-  expect,
+  afterEach,
+  beforeAll,
   beforeEach,
+  describe,
+  expect,
   test,
 } from '@jest/globals';
+import {
+  getRedisMock,
+  setupMocksAndSpies,
+  getCleanUp,
+} from '../../../../tests/testServerSetup.js';
+import { TradeStatus } from '../../trade/tradeConstants.js';
+import { Order } from '../models/Order.js';
+import { OrderType, Sides } from '../orderConstants.js';
+import { OrderRepository } from '../repositories/OrderRepository.js';
 import Redis from 'ioredis';
+import { v4 as uuidv4 } from 'uuid';
+
+jest.mock('uuid', () => ({
+  v4: jest.fn(() => 'mocked-order-id'),
+}));
 
 jest.mock('ioredis', () => require('ioredis-mock'));
 
 describe('OrderRepository', () => {
-  let cleanup;
+  let cleanUp;
 
   /**
    * @type {Redis}
@@ -30,22 +39,24 @@ describe('OrderRepository', () => {
   let orderRepository;
 
   beforeAll(async () => {
-    const setupData = await setup();
-    mockRedis = setupData.mockRedisClients[0]; // Use mock Redis
-    cleanup = setupData.cleanup;
-    orderRepository = new OrderRepository(mockRedis); // Inject mock Redis into repository
+    mockRedis = getRedisMock();
+    orderRepository = setupMocksAndSpies('repository', mockRedis).mocks
+      .orderRepository;
+
+    cleanUp = getCleanUp({ mockRedis });
   }, 10000);
 
-  beforeEach(async () => {
+  afterEach(async () => {
+    jest.clearAllMocks();
     await mockRedis.flushall();
   });
 
   afterAll(() => {
-    cleanup();
+    cleanUp();
   });
 
   const sampleOrder = () => ({
-    orderId: uuidv4(),
+    orderId: 'mocked-order-id',
     orderType: OrderType.LIMIT,
     pair: 'BTC_USD',
     price: 45000,

@@ -6,7 +6,6 @@ import http from 'http';
 import path from 'path';
 import env from './config/env.js';
 import { Server as SocketIOServer } from 'socket.io';
-import { fileURLToPath } from 'url';
 import xss from 'xss-clean';
 import redisClient from './config/RedisClient.js';
 import logger from './core/logger/Logger.js';
@@ -14,6 +13,7 @@ import { errorConverter, errorHandler } from './core/middlewares/index.js';
 import { OrderSocketController } from './modules/order/controllers/OrderSocketController.js';
 import { SubscriptionSocketController } from './modules/subscription/controllers/SubscriptionSocketController.js';
 import { TradeSocketController } from './modules/trade/controllers/TradeSocketController.js';
+import { fileURLToPath } from 'url';
 
 const app = express();
 
@@ -79,4 +79,4 @@ if (env.NODE_ENV === 'dev') {
 app.use(errorConverter);
 app.use(errorHandler);
 
-export default server;
+export { server, app, io };

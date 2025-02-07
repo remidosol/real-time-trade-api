@@ -8,7 +8,7 @@ import { SupportedPairs } from '../../../core/globalConstants.js';
 import { TradeService, TradeStatus } from '../../trade/index.js';
 // import { tradeService } from '../../trade/index.js';
 import logger from '../../../core/logger/Logger.js';
-import { OrderType } from '../orderConstants.js';
+import { OrderType, Sides } from '../orderConstants.js';
 
 // To prevent circular dependency, we'll use a module-level variable
 let tradeService;
@@ -52,6 +52,11 @@ export class OrderService {
    * Creates a new order with a generated UUID, then stores it via the repository.
    *
    * @param {Object} data - { pair, price, quantity, side }
+   * @param {keyof SupportedPairs} data.pair
+   * @param {number | undefined} data.price
+   * @param {number} data.quantity
+   * @param {keyof Sides} data.side
+   *
    * @returns {Promise<Order>} the newly created Order object
    */
   async createOrder(data) {
@@ -67,7 +72,7 @@ export class OrderService {
         quantity: quantity,
         side: side,
         status: TradeStatus.OPEN,
-        orderType: orderType,
+        orderType,
       });
 
       // If it's a MARKET order, attempt immediate execution

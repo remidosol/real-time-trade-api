@@ -2,7 +2,11 @@ import { OrderService } from '../services/OrderService.js';
 import { Order } from '../models/Order.js';
 import { OrderType, Sides } from '../orderConstants.js';
 import { TradeStatus } from '../../trade/tradeConstants.js';
-import { setup } from '../../../../tests/testServerSetup.js';
+import {
+  getRedisMock,
+  setupMocksAndSpies,
+  getCleanUp,
+} from '../../../../tests/testServerSetup.js';
 import {
   describe,
   beforeAll,
@@ -10,18 +14,21 @@ import {
   expect,
   beforeEach,
   test,
+  afterEach,
 } from '@jest/globals';
 import Redis from 'ioredis';
+import { SpiedFunction } from 'jest-mock';
+import { TradeService } from '../../trade/index.js';
+import { v4 as uuidv4 } from 'uuid';
+
+jest.mock('uuid', () => ({
+  v4: jest.fn(() => 'mocked-order-id'),
+}));
 
 jest.mock('ioredis', () => require('ioredis-mock'));
-jest.mock('../repositories/OrderRepository.js');
-jest.mock('../../trade/services/TradeService.js');
-jest.mock('../../trade/repositories/TradeRepository.js');
 
 describe('OrderService', () => {
-  let mockOrderRepository, mockTradeService;
-
-  let cleanup;
+  let cleanUp;
 
   /**
    * @type {Redis}
@@ -33,35 +40,34 @@ describe('OrderService', () => {
    */
   let orderService;
 
+  /**
+   * @type {TradeService}
+   */
+  let mockTradeService;
+
+  /**
+   * @type {{[key: string]: SpiedFunction}}
+   */
+  let mockOrderRepository;
+
   beforeAll(async () => {
-    mockOrderRepository = {
-      addOrder: jest.fn(),
-      getOrder: jest.fn(),
-      setOrderStatus: jest.fn(),
-      updateOrder: jest.fn(),
-      getTopBids: jest.fn(),
-      getTopAsks: jest.fn(),
-      clearOrderBook: jest.fn(),
-    };
+    mockRedis = getRedisMock();
+    const mocksAndSpies = setupMocksAndSpies('service', mockRedis);
+    orderService = mocksAndSpies.mocks.orderService;
 
-    mockTradeService = {
-      matchTopOrders: jest.fn(),
-    };
+    mockOrderRepository = mocksAndSpies.spyOns.orderRepository;
+    mockTradeService = mocksAndSpies.spyOns.orderRepository;
 
-    const setupData = await setup();
-    mockRedis = setupData.mockRedisClients[0];
-    cleanup = setupData.cleanup;
-
-    orderService = new OrderService(mockOrderRepository, mockTradeService);
+    cleanUp = getCleanUp({ mockRedis });
   }, 10000);
 
-  beforeEach(async () => {
+  afterEach(async () => {
     jest.clearAllMocks();
     await mockRedis.flushall();
   });
 
   afterAll(() => {
-    cleanup();
+    cleanUp();
   });
 
   test('should create a LIMIT order and store it', async () => {
@@ -75,6 +81,7 @@ describe('OrderService', () => {
 
     const expectedOrder = new Order({
       ...orderData,
+      orderId: 'mocked-order-id',
       status: TradeStatus.OPEN,
     });
 
@@ -90,7 +97,7 @@ describe('OrderService', () => {
   test('should create a MARKET order and execute immediately if matched', async () => {
     const orderData = {
       orderType: OrderType.MARKET,
-      pair: 'ETH_USD',
+      pair: 'mocked-order-id',
       quantity: 1,
       side: Sides.SELL,
     };
@@ -123,7 +130,7 @@ describe('OrderService', () => {
   });
 
   test('should retrieve an order by ID', async () => {
-    const orderId = 'order-123';
+    const orderId = 'mocked-order-id';
     const order = new Order({
       orderId,
       orderType: OrderType.LIMIT,
@@ -143,7 +150,7 @@ describe('OrderService', () => {
   });
 
   test('should cancel an order', async () => {
-    const orderId = 'order-456';
+    const orderId = 'mocked-order-id';
     const canceledOrder = { orderId, status: TradeStatus.CANCELLED };
 
     mockOrderRepository.setOrderStatus.mockResolvedValueOnce(canceledOrder);
@@ -158,7 +165,7 @@ describe('OrderService', () => {
   });
 
   test('should fill an order if it is OPEN', async () => {
-    const orderId = 'order-789';
+    const orderId = 'mocked-order-id';
     const order = {
       orderId,
       status: TradeStatus.OPEN,
@@ -181,7 +188,7 @@ describe('OrderService', () => {
   });
 
   test('should return null if order is already filled or cancelled', async () => {
-    const orderId = 'order-999';
+    const orderId = 'mocked-non-order-id';
     const order = {
       orderId,
       status: TradeStatus.CANCELLED,
@@ -197,7 +204,7 @@ describe('OrderService', () => {
   });
 
   test('should update an order', async () => {
-    const orderId = 'order-101';
+    const orderId = 'mocked-order-id';
     const updatedOrder = {
       orderId,
       price: 51000,
@@ -214,7 +221,7 @@ describe('OrderService', () => {
   });
 
   test('should return top N bids', async () => {
-    const bids = [{ orderId: 'bid-1', price: 49000 }];
+    const bids = [{ orderId: 'mocked-order-id', price: 49000 }];
     mockOrderRepository.getTopBids.mockResolvedValueOnce(bids);
 
     const result = await orderService.getTopBids('BTC_USD', 5);
@@ -224,7 +231,7 @@ describe('OrderService', () => {
   });
 
   test('should return top N asks', async () => {
-    const asks = [{ orderId: 'ask-1', price: 51000 }];
+    const asks = [{ orderId: 'mocked-order-id', price: 51000 }];
     mockOrderRepository.getTopAsks.mockResolvedValueOnce(asks);
 
     const result = await orderService.getTopAsks('BTC_USD', 5);

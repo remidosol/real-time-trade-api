@@ -28,43 +28,43 @@ Defines the **event names** used in WebSocket communication.
 
 #### **🔹 Incoming Events (Client → Server)**
 
-| Event Name             | Description                                |
-|-----------------------|--------------------------------------------|
-| `createOrder`         | Create a new order                        |
-| `cancelOrder`         | Cancel an existing order                  |
-| `fillOrder`           | Fill an order (execute trade)             |
-| `subscribePair`       | Subscribe to order book updates           |
-| `unsubscribePair`     | Unsubscribe from order book updates       |
-| `getTopOrderBook`     | Get the top N orders from the order book  |
-| `matchTopOrders`      | Match the highest bid with the lowest ask |
-| `getRecentTrades`     | Retrieve recent trade history             |
+| Event Name        | Description                               |
+| ----------------- | ----------------------------------------- |
+| `createOrder`     | Create a new order                        |
+| `cancelOrder`     | Cancel an existing order                  |
+| `fillOrder`       | Fill an order (execute trade)             |
+| `subscribePair`   | Subscribe to order book updates           |
+| `unsubscribePair` | Unsubscribe from order book updates       |
+| `getTopOrderBook` | Get the top N orders from the order book  |
+| `matchTopOrders`  | Match the highest bid with the lowest ask |
+| `getRecentTrades` | Retrieve recent trade history             |
 
 #### **🔹 Outgoing Events (Server → Client)**
 
-| Event Name          | Description                                |
-|--------------------|--------------------------------------------|
-| `orderCreated`     | Order was successfully created             |
-| `orderCancelled`   | Order was successfully cancelled           |
-| `orderFilled`      | Order was executed (fully or partially)    |
-| `orderBookUpdate`  | Order book was updated                     |
-| `subscribed`       | Successfully subscribed to a trading pair  |
-| `unsubscribed`     | Successfully unsubscribed                  |
-| `topOrderBook`     | Response to `getTopOrderBook` request      |
-| `noTrade`          | No trade was matched                       |
-| `tradeExecuted`    | Trade execution event                      |
-| `recentTrades`     | Response to `getRecentTrades` request      |
-| `tradeUpdate`      | Realtime trade update                      |
+| Event Name        | Description                               |
+| ----------------- | ----------------------------------------- |
+| `orderCreated`    | Order was successfully created            |
+| `orderCancelled`  | Order was successfully cancelled          |
+| `orderFilled`     | Order was executed (fully or partially)   |
+| `orderBookUpdate` | Order book was updated                    |
+| `subscribed`      | Successfully subscribed to a trading pair |
+| `unsubscribed`    | Successfully unsubscribed                 |
+| `topOrderBook`    | Response to `getTopOrderBook` request     |
+| `noTrade`         | No trade was matched                      |
+| `tradeExecuted`   | Trade execution event                     |
+| `recentTrades`    | Response to `getRecentTrades` request     |
+| `tradeUpdate`     | Realtime trade update                     |
 
 #### **🔹 Error Events**
 
-| Event Name            | Description                        |
-|----------------------|------------------------------------|
-| `orderError`        | General error related to orders   |
-| `orderBookError`    | Issue fetching order book         |
-| `gatewayError`      | WebSocket gateway error           |
-| `subscriptionError` | Subscription-related error        |
-| `tradeError`        | Trade-related error               |
-| `validationError`   | Schema validation failure         |
+| Event Name          | Description                     |
+| ------------------- | ------------------------------- |
+| `orderError`        | General error related to orders |
+| `orderBookError`    | Issue fetching order book       |
+| `gatewayError`      | WebSocket gateway error         |
+| `subscriptionError` | Subscription-related error      |
+| `tradeError`        | Trade-related error             |
+| `validationError`   | Schema validation failure       |
 
 ### **2️⃣ Event Validation (`validationSchemas.js`)**
 

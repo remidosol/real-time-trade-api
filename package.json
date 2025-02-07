@@ -12,7 +12,7 @@
     "start": "node src/index.js",
     "start:dev": "nodemon",
     "docs:generate": "asyncapi generate fromTemplate ./asyncapi.yaml @asyncapi/html-template -o ./docs --use-new-generator --force-write",
-    "test": "jest --config jest.config.mjs --detectOpenHandles",
+    "test": "jest --runInBand --config jest.config.mjs --detectOpenHandles --collectCoverage=false",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "format": "prettier --write ."
